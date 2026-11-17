@@ -84,6 +84,10 @@ func runCmd(ctx context.Context, dir string, env []string, stdout, stderr io.Wri
 		cmdline := strings.Join(argv, " ")
 		var ee *exec.ExitError
 		if killed {
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return fmt.Errorf("%s: 执行超时，进程组已终止——请检查 data/server.yaml 的 timeouts 配置，"+
+					"或确认命令是否卡在依赖下载/编译（可调大超时或预热依赖缓存）", cmdline)
+			}
 			return fmt.Errorf("%s: killed (%v)", cmdline, ctx.Err())
 		}
 		if errors.As(err, &ee) {
