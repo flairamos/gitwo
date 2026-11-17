@@ -25,8 +25,11 @@ var (
 	resolved bool
 )
 
-// Resolve 解析并缓存 git 路径；找不到时返回带安装/指定指引的错误。
-func Resolve(explicit string) error {
+// Resolve 解析并缓存 git 路径（不触发安装）；找不到时返回带指引的错误。
+func Resolve(explicit string) error { return resolveOnce(explicit) }
+
+// resolveOnce 是带缓存的单次解析（Resolve 与 Ensure 共用）。
+func resolveOnce(explicit string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	if resolved {
@@ -44,6 +47,14 @@ func Resolve(explicit string) error {
 	path, err = lookup(exec.LookPath, candidates())
 	resolved = true
 	return err
+}
+
+// reset 清空解析缓存（自动安装完成后重新探测用；测试亦复用）。
+func reset() {
+	mu.Lock()
+	defer mu.Unlock()
+	resolved = false
+	path, err = "", nil
 }
 
 // Path 返回解析后的 git 路径；尚未解析或解析失败时回退为 "git"

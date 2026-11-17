@@ -257,7 +257,7 @@ build:
 | push 提示 主分支受保护 | 组织仓库的主分支仅组织创建者/管理员可推送；请推送到自己的分支（git push origin HEAD:your-branch）并走合并/验收流程 |
 | SSH 连上但 clone 失败 repository not found | 地址格式：ssh://git@host:2222/&lt;owner&gt;/&lt;repo&gt;.git；确认仓库归属名正确 |
 | push 403 forbidden | 对 private 仓库无写权限（不是 owner/组织成员/管理员） |
-| 启动报 未找到 git 可执行文件 | 平台依赖系统 git：安装 Git 或在 `data/server.yaml` 设置 `git_path`（或环境变量 `GITWO_GIT`）指向 git 绝对路径后重启；非标准安装目录必须显式指定 |
+| 启动报 未找到 git / 自动安装失败 | 平台启动时会自动安装 git（winget/apt/yum）；离线或权限不足会拒绝启动。请手动安装：Windows `winget install --id Git.Git -e --source winget`，Ubuntu `sudo apt-get install -y git`，CentOS `sudo yum install -y git`；git 装在非标准目录时在 `data/server.yaml` 设 `git_path`（或环境变量 `GITWO_GIT`）指向绝对路径后重启 |
 | 流水线失败：no deploy.yaml | 仓库根添加 deploy.yaml；或在仓库设置里确认部署分支 |
 | 流水线失败：frontend output not found | 构建命令失败或 output 路径不对，看流水线日志的构建输出 |
 | 流水线失败：index.html missing | 构建产物路径不对，或设 `verify_index: false` |
@@ -270,6 +270,11 @@ build:
 日志：`journalctl -u gitwo -f`（平台自身）。
 
 ## 本地构建与启动
+
+> 前置要求：Go 1.22+ 用于构建；运行依赖系统 **git**（自动检测：PATH → 常见安装位置 → `git_path` 配置）。
+> 若完全找不到 git，Gitwo 启动时会**自动安装**（Windows 用 `winget install --id Git.Git`，
+> Ubuntu 用 `apt-get install git`，CentOS Stream 用 `yum install git`）；离线或无权限安装失败时
+> **拒绝启动**并提示手动安装命令（可用 `auto_install_git: false` 关闭自动安装）。
 
 **Windows（PowerShell / cmd）：**
 

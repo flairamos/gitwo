@@ -98,8 +98,9 @@ func boot(homeDir string) (*appconfig.Config, appconfig.Home, *store.Store, *pip
 	if err != nil {
 		return nil, home, nil, nil, nil, fmt.Errorf("load data: %w", err)
 	}
-	// 平台所有 Git 能力都依赖系统 git：启动时就给出可操作的报错
-	if err := gitbin.Resolve(cfg.GitPath); err != nil {
+	// 平台所有 Git 能力都依赖系统 git：找不到时按平台自动安装；
+	// 安装失败（离线/无权限）则拒绝启动并给出手动安装指引。
+	if err := gitbin.Ensure(cfg.GitPath, cfg.AutoInstallGitEnabled()); err != nil {
 		return nil, home, nil, nil, nil, err
 	}
 	migrateLayout(home, st)

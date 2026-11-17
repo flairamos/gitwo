@@ -52,21 +52,27 @@ type Timeouts struct {
 }
 
 type Config struct {
-	Listen        string   `yaml:"listen"`     // default :9527
-	GitPath       string   `yaml:"git_path"`   // 可选：显式指定 git 可执行文件路径（自定义安装位置）
-	SSHListen     *string  `yaml:"ssh_listen"` // nil = 默认 ":2222"；显式 "" 禁用 SSH Git 服务
-	Workers       int      `yaml:"workers"`
-	MaxQueued     int      `yaml:"max_queued_per_repo"`
-	VerifyIndex   *bool    `yaml:"verify_index"`
-	PortMin       int      `yaml:"port_min"` // auto-assign range for deployed services
-	PortMax       int      `yaml:"port_max"`
-	NotifyWebhook string   `yaml:"notify_webhook"` // 部署结束 POST 的 webhook URL（空禁用）
-	Timeouts      Timeouts `yaml:"timeouts"`
+	Listen         string   `yaml:"listen"`           // default :9527
+	GitPath        string   `yaml:"git_path"`         // 可选：显式指定 git 可执行文件路径（自定义安装位置）
+	AutoInstallGit *bool    `yaml:"auto_install_git"` // nil = true：找不到 git 时自动用包管理器安装
+	SSHListen      *string  `yaml:"ssh_listen"`       // nil = 默认 ":2222"；显式 "" 禁用 SSH Git 服务
+	Workers        int      `yaml:"workers"`
+	MaxQueued      int      `yaml:"max_queued_per_repo"`
+	VerifyIndex    *bool    `yaml:"verify_index"`
+	PortMin        int      `yaml:"port_min"` // auto-assign range for deployed services
+	PortMax        int      `yaml:"port_max"`
+	NotifyWebhook  string   `yaml:"notify_webhook"` // 部署结束 POST 的 webhook URL（空禁用）
+	Timeouts       Timeouts `yaml:"timeouts"`
 
 	verifyIndex bool
 }
 
 func (c *Config) DefaultVerifyIndex() bool { return c.verifyIndex }
+
+// AutoInstallGitEnabled 报告是否允许在缺 git 时自动安装（缺省开启）。
+func (c *Config) AutoInstallGitEnabled() bool {
+	return c.AutoInstallGit == nil || *c.AutoInstallGit
+}
 
 // SSHAddr 返回 SSH Git 服务监听地址；空串表示已禁用。
 func (c *Config) SSHAddr() string {

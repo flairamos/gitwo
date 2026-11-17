@@ -13,6 +13,12 @@ listen: :9527
 # git 装在非标准目录、或服务以精简环境启动（PATH 不含 git）时设置此项。
 # 也可用环境变量 GITWO_GIT=<git 绝对路径> 覆盖。
 # git_path: "C:\Program Files\Git\cmd\git.exe"
+#
+# 找不到 git 时是否自动安装（默认 true）：
+#   Windows 用 winget（winget install --id Git.Git），Ubuntu 用 apt-get，
+#   CentOS Stream 用 yum/dnf。离线/受限环境可设为 false——此时启动会
+#   直接报错并提示手动安装，不会启动服务。
+# auto_install_git: true
 
 # 部署并发：全局最多同时部署 workers 个仓库；同一仓库内任务严格串行
 workers: 2

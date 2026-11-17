@@ -82,3 +82,78 @@ func TestResolveExplicit(t *testing.T) {
 		t.Fatal("missing explicit path should error")
 	}
 }
+
+// ---- 自动安装（Ensure） ----
+
+// TestEnsureExplicitSkipsInstall：显式路径可用时不触发安装。
+func TestEnsureExplicitSkipsInstall(t *testing.T) {
+	t.Setenv("GITWO_GIT", "")
+	dir := t.TempDir()
+	f := filepath.Join(dir, "git-fake")
+	os.WriteFile(f, []byte("x"), 0o755)
+	old := install
+	called := false
+	install = func() error { called = true; return nil }
+	t.Cleanup(func() { install = old })
+	reset()
+	if err := Ensure(f, true); err != nil {
+		t.Fatalf("Ensure: %v", err)
+	}
+	if called {
+		t.Error("install should not be called when git resolves")
+	}
+}
+
+// TestEnsureAutoDisabled：auto=false 时直接给手动安装指引。
+func TestEnsureAutoDisabled(t *testing.T) {
+	t.Setenv("GITWO_GIT", "")
+	old := install
+	called := false
+	install = func() error { called = true; return nil }
+	t.Cleanup(func() { install = old })
+	reset()
+	err := Ensure(filepath.Join(t.TempDir(), "missing"), false)
+	if err == nil || !strings.Contains(err.Error(), "安装 git") {
+		t.Fatalf("err = %v, want manual install hint", err)
+	}
+	if called {
+		t.Error("install should not be called when disabled")
+	}
+}
+
+// TestEnsureInstallFailsOffline：安装失败（无网络/无权限）时报错含手动指引。
+func TestEnsureInstallFailsOffline(t *testing.T) {
+	t.Setenv("GITWO_GIT", "")
+	old := install
+	t.Cleanup(func() { install = old })
+	reset()
+	install = func() error { return errors.New("network unreachable") }
+	err := Ensure(filepath.Join(t.TempDir(), "missing"), true)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	for _, want := range []string{"自动安装 git 失败", "network unreachable", "安装 git"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("err %q missing %q", err, want)
+		}
+	}
+}
+
+// TestEnsureInstallSuccess：安装成功后重新探测到 git。
+func TestEnsureInstallSuccess(t *testing.T) {
+	t.Setenv("GITWO_GIT", "")
+	dir := t.TempDir()
+	target := filepath.Join(dir, "git-fake")
+	old := install
+	t.Cleanup(func() { install = old })
+	reset()
+	install = func() error {
+		return os.WriteFile(target, []byte("x"), 0o755) // 模拟安装器把 git 放到 target
+	}
+	if err := Ensure(target, true); err != nil {
+		t.Fatalf("Ensure: %v", err)
+	}
+	if Path() != target {
+		t.Errorf("Path() = %q, want %q", Path(), target)
+	}
+}
