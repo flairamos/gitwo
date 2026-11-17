@@ -2,6 +2,7 @@ package webui
 
 import (
 	"bytes"
+	"errors"
 	"mime"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"gitwo/internal/gitbin"
 	"gitwo/internal/model"
 	"gitwo/internal/pipeline"
 	"gitwo/internal/store"
@@ -120,17 +122,21 @@ func (u *UI) repoNewPost(w http.ResponseWriter, r *http.Request) {
 	ownerName = strings.TrimPrefix(ownerName, "org:")
 	full := ownerName + "/" + name
 	repoPath := filepath.Join(u.Home.ReposDir(), ownerName, name+".git")
-	if err := exec.Command("git", "init", "--bare", "--quiet", repoPath).Run(); err != nil {
+	if err := exec.Command(gitbin.Path(), "init", "--bare", "--quiet", repoPath).Run(); err != nil {
 		u.Store.DeleteRepo(full)
 		os.RemoveAll(repoPath) // 清理可能残留的半初始化目录
+		msg := "git init 失败: " + err.Error()
+		if errors.Is(err, exec.ErrNotFound) {
+			msg += "（服务器未找到 git 可执行文件：请安装 Git 并确保其在 PATH 中，然后重启 gitwo）"
+		}
 		u.render(w, http.StatusInternalServerError, "repo_new", repoNewData{
 			Base: u.base(r, "新建仓库"), Owners: u.ownerOptions(usr),
-			Error: "git init 失败: " + err.Error(),
+			Error: msg,
 		})
 		return
 	}
 	// -b needs git >= 2.28; set HEAD explicitly for wide compatibility
-	_ = exec.Command("git", "--git-dir", repoPath, "symbolic-ref", "HEAD", "refs/heads/main").Run()
+	_ = exec.Command(gitbin.Path(), "--git-dir", repoPath, "symbolic-ref", "HEAD", "refs/heads/main").Run()
 	if err := u.Git.EnsureHook(repoPath); err != nil { // 运行期建仓也要装 pre-receive 钩子
 		u.Log.Warn("install hook", "repo", repoPath, "err", err)
 	}
@@ -147,7 +153,7 @@ func (u *UI) git(repo string, args ...string) (string, error) {
 		owner, name = "legacy", repo
 	}
 	args = append([]string{"--git-dir", filepath.Join(u.Home.ReposDir(), owner, name+".git")}, args...)
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command(gitbin.Path(), args...)
 	out, err := cmd.Output()
 	return string(out), err
 }

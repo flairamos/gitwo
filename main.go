@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"gitwo/internal/appconfig"
+	"gitwo/internal/gitbin"
 	"gitwo/internal/gitserver"
 	"gitwo/internal/history"
 	"gitwo/internal/model"
@@ -96,6 +97,10 @@ func boot(homeDir string) (*appconfig.Config, appconfig.Home, *store.Store, *pip
 	st, err := store.Load(home.DataDir())
 	if err != nil {
 		return nil, home, nil, nil, nil, fmt.Errorf("load data: %w", err)
+	}
+	// 平台所有 Git 能力都依赖系统 git：启动时就给出可操作的报错
+	if err := gitbin.Resolve(cfg.GitPath); err != nil {
+		return nil, home, nil, nil, nil, err
 	}
 	migrateLayout(home, st)
 	hist, err := history.New(200, filepath.Join(home.DataDir(), "history.jsonl"))
@@ -326,7 +331,7 @@ func runDeploy(args []string) {
 
 // gitRevParse resolves a ref in a bare repository under reposDir.
 func gitRevParse(reposDir, repo, ref string) (string, error) {
-	out, err := exec.Command("git", "--git-dir", filepath.Join(reposDir, repo+".git"),
+	out, err := exec.Command(gitbin.Path(), "--git-dir", filepath.Join(reposDir, repo+".git"),
 		"rev-parse", ref).Output()
 	if err != nil {
 		return "", err

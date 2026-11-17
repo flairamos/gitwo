@@ -53,6 +53,7 @@ type Timeouts struct {
 
 type Config struct {
 	Listen        string   `yaml:"listen"`     // default :9527
+	GitPath       string   `yaml:"git_path"`   // 可选：显式指定 git 可执行文件路径（自定义安装位置）
 	SSHListen     *string  `yaml:"ssh_listen"` // nil = 默认 ":2222"；显式 "" 禁用 SSH Git 服务
 	Workers       int      `yaml:"workers"`
 	MaxQueued     int      `yaml:"max_queued_per_repo"`

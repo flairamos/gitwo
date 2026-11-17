@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gitwo/internal/gitbin"
 	"gitwo/internal/shellutil"
 )
 
@@ -30,7 +31,7 @@ func Sync(ctx context.Context, cloneURL, dir, branch, sha string, env []string, 
 	run := func(cwd string, args ...string) error {
 		cmdline := strings.Join(args, " ")
 		fmt.Fprintf(logw, "$ git %s\n", strings.ReplaceAll(cmdline, cloneURL, display))
-		argv := append([]string{"git"}, args...)
+		argv := append([]string{gitbin.Path()}, args...)
 		return shellutil.Run(ctx, cwd, env, logw, argv...)
 	}
 
@@ -70,7 +71,7 @@ func Sync(ctx context.Context, cloneURL, dir, branch, sha string, env []string, 
 		return "", fmt.Errorf("git clean failed: %w", err)
 	}
 
-	rev, err := shellutil.Output(ctx, dir, env, logw, "git", "rev-parse", "HEAD")
+	rev, err := shellutil.Output(ctx, dir, env, logw, gitbin.Path(), "rev-parse", "HEAD")
 	if err != nil {
 		return "", fmt.Errorf("git rev-parse failed: %w", err)
 	}

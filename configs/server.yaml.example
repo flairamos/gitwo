@@ -9,6 +9,11 @@ listen: :9527
 # 主机密钥首次启动自动生成于 data/ssh/ssh_host_ed25519_key。
 # ssh_listen: ":2222"
 
+# 可选：显式指定 git 可执行文件路径。默认自动解析（PATH → 常见安装位置）。
+# git 装在非标准目录、或服务以精简环境启动（PATH 不含 git）时设置此项。
+# 也可用环境变量 GITWO_GIT=<git 绝对路径> 覆盖。
+# git_path: "C:\Program Files\Git\cmd\git.exe"
+
 # 部署并发：全局最多同时部署 workers 个仓库；同一仓库内任务严格串行
 workers: 2
 max_queued_per_repo: 5        # 每仓库排队上限，超出丢弃新任务

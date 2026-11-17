@@ -21,6 +21,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"gitwo/internal/gitbin"
 	"gitwo/internal/gitserver"
 	"gitwo/internal/store"
 )
@@ -266,7 +267,7 @@ func (s *Server) runGitCommand(ch ssh.Channel, user, command string) {
 	}
 
 	before, _ := gitserver.RefSnapshot(dir)
-	cmd := exec.Command("git", argv...)
+	cmd := exec.Command(gitbin.Path(), argv...)
 	cmd.Stdin = ch
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

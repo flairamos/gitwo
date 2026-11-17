@@ -257,6 +257,7 @@ build:
 | push 提示 主分支受保护 | 组织仓库的主分支仅组织创建者/管理员可推送；请推送到自己的分支（git push origin HEAD:your-branch）并走合并/验收流程 |
 | SSH 连上但 clone 失败 repository not found | 地址格式：ssh://git@host:2222/&lt;owner&gt;/&lt;repo&gt;.git；确认仓库归属名正确 |
 | push 403 forbidden | 对 private 仓库无写权限（不是 owner/组织成员/管理员） |
+| 启动报 未找到 git 可执行文件 | 平台依赖系统 git：安装 Git 或在 `data/server.yaml` 设置 `git_path`（或环境变量 `GITWO_GIT`）指向 git 绝对路径后重启；非标准安装目录必须显式指定 |
 | 流水线失败：no deploy.yaml | 仓库根添加 deploy.yaml；或在仓库设置里确认部署分支 |
 | 流水线失败：frontend output not found | 构建命令失败或 output 路径不对，看流水线日志的构建输出 |
 | 流水线失败：index.html missing | 构建产物路径不对，或设 `verify_index: false` |

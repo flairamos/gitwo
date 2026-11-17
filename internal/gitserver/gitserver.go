@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 
+	"gitwo/internal/gitbin"
 	"gitwo/internal/store"
 )
 
@@ -174,7 +175,7 @@ func (g *Git) infoRefs(w http.ResponseWriter, r *http.Request, repo string) {
 	pkt := fmt.Sprintf("# service=%s\n", service)
 	fmt.Fprintf(w, "%04x%s0000", len(pkt)+4, pkt)
 
-	cmd := exec.Command("git", strings.TrimPrefix(service, "git-"), "--stateless-rpc", "--advertise-refs", g.repoPath(repo))
+	cmd := exec.Command(gitbin.Path(), strings.TrimPrefix(service, "git-"), "--stateless-rpc", "--advertise-refs", g.repoPath(repo))
 	cmd.Env = gitEnv(r)
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
@@ -226,7 +227,7 @@ func (g *Git) servicePack(w http.ResponseWriter, r *http.Request, repo, service 
 	w.Header().Set("Cache-Control", "no-cache")
 	w.WriteHeader(http.StatusOK)
 
-	cmd := exec.Command("git", strings.TrimPrefix(service, "git-"), "--stateless-rpc", repoPath)
+	cmd := exec.Command(gitbin.Path(), strings.TrimPrefix(service, "git-"), "--stateless-rpc", repoPath)
 	cmd.Env = append(gitEnv(r), g.pushIdentityEnv(user, repo)...)
 	cmd.Stdin = body
 	cmd.Stdout = flushWriter{w}
@@ -288,7 +289,7 @@ func DiffRefs(before, after map[string]string) []RefUpdate {
 }
 
 func gitRefs(repoPath string) (map[string]string, error) {
-	cmd := exec.Command("git", "for-each-ref", "--format=%(refname:short)%00%(objectname)", "refs/heads")
+	cmd := exec.Command(gitbin.Path(), "for-each-ref", "--format=%(refname:short)%00%(objectname)", "refs/heads")
 	cmd.Dir = repoPath
 	out, err := cmd.Output()
 	if err != nil {
