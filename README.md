@@ -8,9 +8,18 @@
 - ✅ push 后自动打包部署：静态站点、Go 服务（nohup + PID 管理）
 - ✅ 流水线视图：实时看到每个构建步骤与日志
 - ✅ 默认账户 `admin / admin`（登录后可改）；用户与组织权限
-- ✅ 目标环境：**Ubuntu / CentOS Stream**
+- ✅ 目标环境：**Ubuntu / CentOS Stream**（Windows 可本地体验）
 
-> **在线文档**：https://flairamos.github.io/gitwo/（界面截图与完整使用说明） · **完整截图集**：[docs/DEMO.md](docs/DEMO.md)
+> **在线文档**：[https://flairamos.github.io/gitwo/](https://flairamos.github.io/gitwo/) · **完整截图集**：[docs/DEMO.md](docs/DEMO.md)
+
+## 运行环境须知（先读）
+
+| 项目 | 说明 |
+|------|------|
+| **构建** | 需要 Go 1.22+。Gitwo 本身是单一二进制，编译后运行不再需要 Go。 |
+| **运行依赖** | 系统 **git**：启动时自动检测（`server.yaml` 的 `git_path` > 环境变量 `GITWO_GIT` > PATH > 各平台常见安装位置）；找不到会尝试自动安装（Windows `winget` / Ubuntu `apt-get` / CentOS `yum`），**离线或安装失败则拒绝启动**并提示手动安装命令。 |
+| **语言环境** | ⚠️ **Go / Python / Java / Node / Rust 等语言工具链不会被 Gitwo 安装或自动下载**。流水线只在主机上执行 `deploy.yaml` 声明的命令，所需环境必须由开发者/运维**提前自行安装**（建议用 nvm、JDK、官方安装包等统一预装，并保证 systemd 服务的 PATH 能看到它们），否则流水线会明确失败（如 `npm: not found`）。详见下文「多语言构建与运行」。 |
+| **目标环境** | 服务器推荐 **Ubuntu / CentOS Stream**；Windows 可用于本地体验与开发调试。 |
 
 ```
 开发者 git push ──► Gitwo 内置 Git 服务端 (HTTP :9527)
