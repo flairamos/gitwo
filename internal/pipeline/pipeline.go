@@ -39,6 +39,7 @@ type Timeouts struct {
 	Deploy    time.Duration
 	Stop      time.Duration
 	StartWait time.Duration
+	Stall     time.Duration // 构建命令连续无输出多久判定卡死（0 关闭）
 }
 
 // Params wires the pipeline to the integrated platform's layout.
@@ -392,7 +393,7 @@ func (p *Pipeline) buildFrontend(t *model.Task, w io.Writer, dc *deploycfg.Deplo
 	} else {
 		ctx, cancel := context.WithTimeout(context.Background(), p.Params.Timeouts.Build)
 		defer cancel()
-		if err := shellutil.Shell(ctx, dir, env, w, f.Command); err != nil {
+		if err := shellutil.ShellStall(ctx, dir, env, w, p.Params.Timeouts.Stall, f.Command); err != nil {
 			return "", fmt.Errorf("frontend build failed: %w", err)
 		}
 	}
@@ -437,7 +438,7 @@ func (p *Pipeline) buildBackend(t *model.Task, w io.Writer, dc *deploycfg.Deploy
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), p.Params.Timeouts.Build)
 	defer cancel()
-	if err := shellutil.Shell(ctx, dir, env, w, b.Command); err != nil {
+	if err := shellutil.ShellStall(ctx, dir, env, w, p.Params.Timeouts.Stall, b.Command); err != nil {
 		return "", fmt.Errorf("backend build failed: %w", err)
 	}
 	out := b.Output

@@ -44,11 +44,12 @@ func (d *Duration) UnmarshalYAML(node *yaml.Node) error {
 func (d Duration) D() time.Duration { return time.Duration(d) }
 
 type Timeouts struct {
-	Git       Duration `yaml:"git"`
-	Build     Duration `yaml:"build"`
-	Deploy    Duration `yaml:"deploy"`
-	Stop      Duration `yaml:"stop"`
-	StartWait Duration `yaml:"start_wait"`
+	Git       Duration  `yaml:"git"`
+	Build     Duration  `yaml:"build"`
+	Deploy    Duration  `yaml:"deploy"`
+	Stop      Duration  `yaml:"stop"`
+	StartWait Duration  `yaml:"start_wait"`
+	Stall     *Duration `yaml:"stall"` // 构建命令连续无输出多久判定卡死；缺省 20s，0s 关闭
 }
 
 type Config struct {
@@ -65,9 +66,13 @@ type Config struct {
 	Timeouts       Timeouts `yaml:"timeouts"`
 
 	verifyIndex bool
+	stall       time.Duration
 }
 
 func (c *Config) DefaultVerifyIndex() bool { return c.verifyIndex }
+
+// StallD 返回构建命令的停滞检测阈值（0 表示关闭）。
+func (c *Config) StallD() time.Duration { return c.stall }
 
 // AutoInstallGitEnabled 报告是否允许在缺 git 时自动安装（缺省开启）。
 func (c *Config) AutoInstallGitEnabled() bool {
@@ -206,6 +211,11 @@ func setDefaults(c *Config) {
 	}
 	if c.Timeouts.StartWait == 0 {
 		c.Timeouts.StartWait = Duration(2 * time.Second)
+	}
+	if c.Timeouts.Stall == nil {
+		c.stall = 20 * time.Second // 构建停滞检测：20s 无输出即判卡死
+	} else {
+		c.stall = c.Timeouts.Stall.D() // 显式 0s 关闭检测
 	}
 }
 

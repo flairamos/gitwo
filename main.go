@@ -123,6 +123,7 @@ func boot(homeDir string) (*appconfig.Config, appconfig.Home, *store.Store, *pip
 				Deploy:    cfg.Timeouts.Deploy.D(),
 				Stop:      cfg.Timeouts.Stop.D(),
 				StartWait: cfg.Timeouts.StartWait.D(),
+				Stall:     cfg.StallD(),
 			},
 			DefaultVerifyIndex: cfg.DefaultVerifyIndex(),
 			NotifyWebhook:      cfg.NotifyWebhook,

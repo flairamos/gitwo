@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
+	"time"
 )
 
 var errUnsupported = errors.New("shellutil: POSIX process management is not supported on windows; run gitwo on Linux")
@@ -68,6 +69,11 @@ func Output(ctx context.Context, dir string, env []string, logw io.Writer, argv 
 
 // Shell is unsupported on windows.
 func Shell(ctx context.Context, dir string, env []string, logw io.Writer, script string) error {
+	return errUnsupported
+}
+
+// ShellStall is unsupported on windows.
+func ShellStall(ctx context.Context, dir string, env []string, logw io.Writer, stall time.Duration, script string) error {
 	return errUnsupported
 }
 
