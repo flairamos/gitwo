@@ -1,5 +1,6 @@
 /gitwo
 /gitwo.exe
 /bin/
+/dist/
 *.test
 .zcode/
