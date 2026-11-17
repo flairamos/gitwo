@@ -2,3 +2,4 @@
 /gitwo.exe
 /bin/
 *.test
+.zcode/
