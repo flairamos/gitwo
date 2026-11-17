@@ -1,0 +1,26 @@
+# 纯静态站点（type: static）——需要构建的进阶示例（Vite/Vue 等）
+type: static
+
+env:                                # 注入构建环境变量
+  NODE_ENV: production
+
+build:
+  frontend:
+    command: npm ci && npm run build
+    dir: web                        # 可选：构建命令的工作目录（monorepo 子目录）
+    output: dist                    # 产出目录（相对仓库根或绝对路径）
+    target: /srv/custom-site        # 可选：缺省为 <程序目录>/apps/<仓库名>/static
+    verify_index: true              # 部署后校验 index.html（默认继承平台设置 true）
+
+# ── 原生前端（无需构建）的两种写法 ──
+#
+# 1) 零配置：仓库根目录放 index.html + 仅一行 "type: static"
+#    平台自动检测：跳过构建，直接发布仓库根目录（自动排除 .git / deploy.yaml）
+#
+# 2) 静态文件在子目录：command 留空 + 指定 output
+#    type: static
+#    build:
+#      frontend:
+#        output: public    # 直接发布 public/ 目录，不做任何构建
+#
+# 平台通过 deploy.yaml 区分：有 command = 构建型（Vite/Vue），无 command = 原生直发。

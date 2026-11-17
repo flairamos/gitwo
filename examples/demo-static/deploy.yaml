@@ -1,0 +1,16 @@
+# 原生前端（无需构建）——零配置写法：
+# 仓库根目录就是站点（index.html 在根目录），不配置 build 段，
+# push 后跳过构建直接发布，经 /sites/<仓库名>/ 访问。
+# .git 与 deploy.yaml 会自动从发布内容中排除。
+type: static
+
+# 如果静态文件在子目录（如 public/），或想从别的目录发布，用这种写法：
+# build:
+#   frontend:
+#     output: public        # command 留空 = 跳过构建，直接发布该目录
+
+# 如果是 Vite/Vue 等需要构建的项目，则填写构建命令：
+# build:
+#   frontend:
+#     command: npm ci && npm run build
+#     output: dist

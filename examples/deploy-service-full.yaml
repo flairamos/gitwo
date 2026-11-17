@@ -1,0 +1,21 @@
+# 模式 A（type: service）：Go 后端 + 前端产物由平台托管
+type: service
+
+env:                                # 顶层环境：构建与服务进程共用
+  APP_ENV: production
+
+build:
+  frontend:
+    command: npm ci && npm run build
+    output: dist                    # 发布到 apps/<仓库名>/static，经 /sites/<仓库名>/ 访问
+  backend:
+    command: go build -trimpath -o bin/app ./cmd/server
+    output: bin/app
+
+run:
+  workdir: /srv/myapp               # 可选：缺省为 <程序目录>/apps/<仓库名>
+  command: ./app --config prod.yml  # nohup 启动命令；进程名 "app" 用于 PID 校验
+  port: 8080                        # 可选：显式端口；缺省自动分配并注入 $PORT
+  env:                              # 服务进程环境变量（叠加在顶层 env 之上）
+    GOMEMLIMIT: 256MiB
+  keep_binaries: 3                  # 可选：在 backups/ 保留最近 3 个旧二进制

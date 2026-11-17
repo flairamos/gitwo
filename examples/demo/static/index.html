@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Gitwo Demo</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#141821;color:#e6e6e6;display:flex;
+min-height:100vh;align-items:center;justify-content:center;margin:0}
+.card{background:#1d2431;padding:32px 40px;border-radius:12px;max-width:480px}
+h1{font-size:22px;margin:0 0 8px}
+p{color:#9aa4b2;font-size:14px;line-height:1.7;margin:6px 0}
+code{background:#0d1117;padding:2px 8px;border-radius:4px;color:#7ee2a8}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>Gitwo Demo ✔</h1>
+<p>这个页面由 gitwo 从 Gitea push 自动构建并部署。</p>
+<p>后端信息：<code id="info">加载中…</code></p>
+<p class="muted">接口 /api/info 返回触发本次部署的 commit 与任务号。</p>
+</div>
+<script>
+fetch('/api/info').then(r=>r.json()).then(d=>{
+  document.getElementById('info').textContent =
+    'commit=' + (d.commit||'-').slice(0,8) + ' task=' + (d.task||'-');
+}).catch(()=>{ document.getElementById('info').textContent = '后端未运行'; });
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# demo 项目的部署配置（service 模式，最小化：全部使用平台默认值）
+#
+# - run.workdir 缺省为 <程序目录>/apps/demo
+# - run.port 缺省自动分配（注入 $PORT，demo 程序读取它监听）
+# - 二进制安装到 apps/demo/demo，PID 文件 apps/demo/app.pid
+type: service
+
+build:
+  backend:
+    command: go build -o bin/demo .
+    output: bin/demo
+
+run:
+  command: ./demo

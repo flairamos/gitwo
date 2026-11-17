@@ -1,0 +1,24 @@
+# 模式 B（type: dual）：前端与 API 分离的完整示例
+# 集成平台下前端由 gitwo 统一托管在 /sites/<仓库名>/，
+# API 服务运行在独立端口（直连访问），static_server 段仅记录 SPA 开关。
+type: dual
+
+build:
+  frontend:
+    command: pnpm i --frozen-lockfile && pnpm run build
+    output: dist
+  backend:
+    command: go build -o bin/api ./cmd/api
+    output: bin/api
+
+static_server:
+  # addr: 0.0.0.0:3000             # 集成模式下仅作记录，平台不再额外拉起静态进程
+  static_dir: /srv/myapp/static    # 可选：覆盖前端发布目录
+  spa: true                        # 未命中路径回退 index.html（默认 true）
+
+run:
+  command: ./api
+  port: 8080                       # API 直连端口
+  env:
+    APP_ENV: production
+  keep_binaries: 3

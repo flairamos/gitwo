@@ -1,0 +1,29 @@
+# /etc/systemd/system/gitwo.service
+# Gitwo 平台自身以 systemd 常驻；被部署的后端服务由 nohup 托管，
+# KillMode=process 确保 systemd 停止/重启 gitwo 时不会误杀它们。
+[Unit]
+Description=Gitwo - self-contained git server & push-to-deploy platform
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gitwo
+Group=gitwo
+WorkingDirectory=/opt/gitwo
+ExecStart=/opt/gitwo/gitwo serve -home /opt/gitwo
+Restart=on-failure
+RestartSec=3s
+
+# 只杀主进程：部署出去的 nohup 服务与本进程同机但不属于本 unit 的关闭范围
+KillMode=process
+LimitNOFILE=65536
+
+# 适度加固：/usr /boot /etc 只读；/opt（数据目录）与 /tmp（临时文件）可写
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
