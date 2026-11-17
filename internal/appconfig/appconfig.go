@@ -49,7 +49,7 @@ type Timeouts struct {
 	Deploy    Duration  `yaml:"deploy"`
 	Stop      Duration  `yaml:"stop"`
 	StartWait Duration  `yaml:"start_wait"`
-	Stall     *Duration `yaml:"stall"` // 构建命令连续无输出多久判定卡死；缺省 20s，0s 关闭
+	Stall     *Duration `yaml:"stall"` // 构建命令连续无输出且几乎无 CPU 活动多久判定卡死；缺省 20s，0s 关闭
 }
 
 type Config struct {
@@ -213,7 +213,7 @@ func setDefaults(c *Config) {
 		c.Timeouts.StartWait = Duration(2 * time.Second)
 	}
 	if c.Timeouts.Stall == nil {
-		c.stall = 20 * time.Second // 构建停滞检测：20s 无输出即判卡死
+		c.stall = 20 * time.Second // 构建停滞检测：20s 无输出且近乎零 CPU 即判卡死
 	} else {
 		c.stall = c.Timeouts.Stall.D() // 显式 0s 关闭检测
 	}

@@ -50,3 +50,22 @@ func TestShellStallDisabled(t *testing.T) {
 		t.Errorf("log = %q", log.String())
 	}
 }
+
+// TestShellStallSparesBusySilentCommand：静默但 CPU 忙的命令（go build 的
+// 编译期就是这样）不算停滞，不能被误杀；最终由 ctx 超时收尾。
+func TestShellStallSparesBusySilentCommand(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	var log bytes.Buffer
+	start := time.Now()
+	err := ShellStall(ctx, "", nil, &log, 300*time.Millisecond, "while :; do :; done")
+	if err == nil {
+		t.Fatal("expected ctx-timeout kill")
+	}
+	if strings.Contains(err.Error(), "停滞超过") {
+		t.Errorf("busy silent command misjudged as stalled: %v", err)
+	}
+	if took := time.Since(start); took < 1500*time.Millisecond {
+		t.Errorf("killed after %v, want ~2s (ctx timeout) — CPU gating failed", took)
+	}
+}

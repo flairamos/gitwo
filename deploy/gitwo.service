@@ -19,6 +19,11 @@ RestartSec=3s
 KillMode=process
 LimitNOFILE=65536
 
+# 小内存服务器（≤2G 且无 swap）建议启用：构建吃满内存会把整机拖到 OOM、
+# 连 sshd 都登录不上。按机器内存给值（如 2G 内存给 1G）：超限只杀 gitwo
+# 和构建本身（构建报错失败），系统与 sshd 不受影响。大内存机器保持注释。
+# MemoryMax=1G
+
 # 适度加固：/usr /boot /etc 只读；/opt（数据目录）与 /tmp（临时文件）可写
 NoNewPrivileges=true
 ProtectSystem=full
