@@ -23,8 +23,10 @@ import (
 // Run executes argv in dir, streaming combined output to logw.
 // env == nil inherits the current environment.
 func Run(ctx context.Context, dir string, env []string, logw io.Writer, argv ...string) error {
-	var buf bytes.Buffer
-	return runCmd(ctx, dir, env, io.MultiWriter(&buf, logw), io.MultiWriter(&buf, logw), 0, argv)
+	if logw == nil {
+		logw = io.Discard
+	}
+	return runCmd(ctx, dir, env, logw, logw, 0, argv)
 }
 
 // Output executes argv and returns trimmed stdout; stderr goes to logw.
@@ -43,8 +45,10 @@ func Shell(ctx context.Context, dir string, env []string, logw io.Writer, script
 // （典型场景：依赖下载卡死/网络不可达）时，终止整个进程组并返回停滞超时
 // 错误，让流水线快速失败而不是等满总超时。stall <= 0 时等同 Shell。
 func ShellStall(ctx context.Context, dir string, env []string, logw io.Writer, stall time.Duration, script string) error {
-	var buf bytes.Buffer
-	return runCmd(ctx, dir, env, io.MultiWriter(&buf, logw), io.MultiWriter(&buf, logw), stall, []string{"sh", "-c", script})
+	if logw == nil {
+		logw = io.Discard
+	}
+	return runCmd(ctx, dir, env, logw, logw, stall, []string{"sh", "-c", script})
 }
 
 // idleWriter 包装输出 writer，记录最后一次写入时间供停滞检测使用。
@@ -72,7 +76,7 @@ func runCmd(ctx context.Context, dir string, env []string, stdout, stderr io.Wri
 	cmd.WaitDelay = 10 * time.Second
 	// Keep a tail of the output so failures can surface the actual reason
 	// (e.g. "npm: not found" when a toolchain is missing).
-	var tail bytes.Buffer
+	tail := &tailBuffer{max: 16 << 10} // 只留最后 16 KiB 供失败诊断，内存不随输出增长
 	var lastOut atomic.Int64
 	lastOut.Store(time.Now().UnixNano())
 	idle := func(w io.Writer) io.Writer {
@@ -82,10 +86,10 @@ func runCmd(ctx context.Context, dir string, env []string, stdout, stderr io.Wri
 		return &idleWriter{w: w, last: &lastOut}
 	}
 	if stdout != nil {
-		cmd.Stdout = io.MultiWriter(idle(stdout), &tail)
+		cmd.Stdout = io.MultiWriter(idle(stdout), tail)
 	}
 	if stderr != nil {
-		cmd.Stderr = io.MultiWriter(idle(stderr), &tail)
+		cmd.Stderr = io.MultiWriter(idle(stderr), tail)
 	}
 
 	if err := cmd.Start(); err != nil {
@@ -149,7 +153,7 @@ func runCmd(ctx context.Context, dir string, env []string, stdout, stderr io.Wri
 		}
 		if errors.As(err, &ee) {
 			msg := fmt.Sprintf("%s: exited with %s", cmdline, ee)
-			if out := lastOutput(&tail, 400); out != "" {
+			if out := lastOutput(tail.String(), 400); out != "" {
 				// Surface the actual reason (e.g. "npm: not found") so missing
 				// toolchains produce an understandable pipeline failure.
 				msg += "\n" + out

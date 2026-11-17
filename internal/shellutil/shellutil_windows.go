@@ -30,9 +30,8 @@ func Run(ctx context.Context, dir string, env []string, logw io.Writer, argv ...
 	if logw == nil {
 		logw = io.Discard
 	}
-	var buf bytes.Buffer
-	cmd.Stdout = io.MultiWriter(&buf, logw)
-	cmd.Stderr = io.MultiWriter(&buf, logw)
+	cmd.Stdout = logw
+	cmd.Stderr = logw
 	if err := cmd.Start(); err != nil {
 		return err
 	}
