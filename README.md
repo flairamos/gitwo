@@ -91,7 +91,7 @@ git add -A && git commit -m "first" && git push origin main
 | 账户体系 | 默认 admin/admin；PBKDF2-HMAC-SHA256 加盐哈希；会话 Cookie（HttpOnly + SameSite=Lax）；/me 自助改密；SSH 公钥管理（/me/keys，多把，指纹去重）；角色：管理员/开发者/测试 |
 | 组织与权限 | 组织下挂用户并拥有仓库：组织成员可读写该组织全部仓库（多人共用、各自推送），组织间代码相互隔离；仓库可见性 private（登录）/public（匿名只读）；管理员全权；非成员 push 返回 403；组织仓库主分支受保护（仅创建者/管理员可推） |
 | 流水线 | push 自动触发（或仓库页手动「重新部署」）；同仓库串行、跨仓库并行（workers）；每仓库排队上限；相同 commit 去重；任务状态 pending/running/success/failed/skipped；**回滚**：最近部署行 / 任务详情页一键「回到此版本」重新部署历史提交；**通知**：结束时可 POST 结果到配置的 webhook（notify_webhook）。**隔离**：仓库页只能进入该仓库自己的流水线（`/pipelines?repo=owner/name`，无全局入口）；全局流水线页只显示可读仓库的任务；任务详情/日志 API 校验仓库读权限（仓库删除后仅管理员可看历史） |
-| 构建 | 仓库根 `deploy.yaml` 声明构建命令与产物；未知字段直接报错；注入 `GITWO_REPO/BRANCH/COMMIT/TASK/PORT` 与 `TMPDIR=/tmp/gitwo/tmp/<task>`；每步超时+进程组杀灭；**停滞检测**：build 命令连续 20s 无任何输出**且进程组几乎不消耗 CPU**（依赖下载卡死/断网；go build 等静默编译因 CPU 忙不受影响）即终止并报“停滞超过”，阈值 `timeouts.stall` 可调（0 关闭） |
+| 构建 | 仓库根 `deploy.yaml` 声明构建命令与产物；未知字段直接报错；注入 `GITWO_REPO/BRANCH/COMMIT/TASK/PORT` 与 `TMPDIR=/tmp/gitwo/tmp/<task>`；每步超时+进程组杀灭；**停滞检测**：build 命令连续 20s 无任何输出**且整棵构建进程树几乎不消耗 CPU**（依赖下载卡死/断网；go build 等静默编译因 CPU 忙不受影响）即终止并报“停滞超过”，阈值 `timeouts.stall` 可调（0 关闭） |
 | 静态部署 | `rsync -a --delete`（rsync 缺失时自动用内置 Go 同步）；发布到 `apps/<owner>_<repo>/static`，由平台托管在 `/sites/<repo>/`（SPA 回退可配） |
 | 服务部署 | 二进制 temp+rename 原子替换（避开 text file busy）→ 读 `app.pid` → **/proc 校验 PID 归属防误杀** → SIGTERM 轮询 → 超时 SIGKILL → `nohup` 启动 → 2s 存活确认（死亡自动附 app.log 尾部）→ 端口保持稳定 |
 | 端口管理 | `run.port` 显式指定，否则自动分配（20000-23999 可配）并注入 `$PORT`；下次部署沿用上次端口（站点地址不漂移）；启动前探测端口占用 |
@@ -268,7 +268,8 @@ build:
 | push 403 forbidden | 对 private 仓库无写权限（不是 owner/组织成员/管理员） |
 | 启动报 未找到 git / 自动安装失败 | 平台启动时会自动安装 git（winget/apt/yum）；离线或权限不足会拒绝启动。请手动安装：Windows `winget install --id Git.Git -e --source winget`，Ubuntu `sudo apt-get install -y git`，CentOS `sudo yum install -y git`；git 装在非标准目录时在 `data/server.yaml` 设 `git_path`（或环境变量 `GITWO_GIT`）指向绝对路径后重启 |
 | 构建时内存暴涨 / 服务器吃满 | 平台侧已限制：命令输出只保留尾部 16 KiB（不再随日志增长）。剩余占用一般来自构建工具本身：① `workers: 1` 降并发；② Node 项目设 `NODE_OPTIONS=--max-old-space-size=1024`；③ 加 swap；④ `top` 观察是 node/java/go 还是 gitwo 进程；⑤ 需要硬上限时给 gitwo 的 systemd unit 加 `MemoryMax=2G`（注意构建会被连带限制） |
-| 流水线失败：停滞超过 20s（无输出且几乎无 CPU） | 判定条件是“无输出**且**进程组近乎零 CPU”，静默但 CPU 忙的编译不会被误杀——报这个错基本就是依赖下载卡死或网络不可达：给运行用户配 `GOPROXY`（如 goproxy.cn）或 repo 内 `go mod vendor`；极端环境（如磁盘 I/O 完全阻塞）误触发时把 `timeouts.stall` 调大（如 60s）或设 0s 关闭 |
+| 流水线失败：停滞超过 20s（无输出且几乎无 CPU） | 判定条件是“无输出**且**构建进程树（含 `timeout`/`setsid` 包装出的后代进程）近乎零 CPU”，静默但 CPU 忙的编译不会被误杀——报这个错基本就是依赖下载卡死或网络不可达：给运行用户配 `GOPROXY`（如 goproxy.cn）或 repo 内 `go mod vendor`；极端环境（如磁盘 I/O 完全阻塞）误触发时把 `timeouts.stall` 调大（如 60s）或设 0s 关闭 |
+| 部署大项目时流水线长时间停在 build-backend、日志不再新增 | **不一定卡死**：`go build` 编译期不打印任何输出，而停滞检测只在“无输出且整棵构建进程树几乎不耗 CPU”时才终止。`top`/`ps` 里看到 `go`/`compile`/`link` 在吃 CPU 就是正常在编译（默认上限 `timeouts.build: 10m`，超时才会失败）；想看进度可在 `deploy.yaml` 的构建命令里加 `-v`（如 `go build -v -o app .`） |
 | 流水线失败：no deploy.yaml | 仓库根添加 deploy.yaml；或在仓库设置里确认部署分支 |
 | 流水线失败：frontend output not found | 构建命令失败或 output 路径不对，看流水线日志的构建输出 |
 | 流水线失败：index.html missing | 构建产物路径不对，或设 `verify_index: false` |

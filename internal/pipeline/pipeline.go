@@ -98,9 +98,24 @@ func (p *Pipeline) NewTask(repo, branch, sha string) *model.Task {
 
 // Execute runs the full pipeline for a task. It is invoked by the queue and
 // never panics into the caller.
+//
+// 任务状态只在本 goroutine 的私有副本上推进，再通过 publish 把快照发布到
+// history：Task 指针同时会被 Web UI（流水线列表/详情/日志接口）读取，
+// 直接原地修改它与读者并发会构成数据竞争（-race 曾报出）。
 func (p *Pipeline) Execute(t *model.Task) {
+	local := *t
+	t = &local
+
+	defer func() {
+		if r := recover(); r != nil {
+			p.Log.Error("deploy panicked", "task", t.ID, "repo", t.Repo, "panic", r)
+			p.finish(t, model.StatusFailed, fmt.Sprintf("gitwo internal error: %v", r))
+		}
+	}()
+
 	t.Status = model.StatusRunning
 	t.StartedAt = time.Now()
+	p.publish(t)
 	p.Log.Info("deploy started", "task", t.ID, "repo", t.Repo, "branch", t.Branch, "sha", t.ShortSHA())
 
 	err := p.run(t)
@@ -122,8 +137,40 @@ func (p *Pipeline) Execute(t *model.Task) {
 		p.Log.Info("deploy succeeded", "task", t.ID, "repo", t.Repo, "branch", t.Branch,
 			"sha", t.ShortSHA(), "duration", dur.String())
 	}
-	p.Hist.Persist(t)
+	p.publish(t)
+	if p.Hist != nil {
+		p.Hist.Persist(t)
+	}
 	p.notifyWebhook(t)
+}
+
+// publish 把任务快照发布到历史存储；任务本身只由流水线 goroutine 修改，
+// 历史存储负责加锁，UI 读到的永远是完整快照。
+func (p *Pipeline) publish(t *model.Task) {
+	if p.Hist == nil {
+		return
+	}
+	p.Hist.Update(t.ID, t)
+}
+
+// finish 在 panic 兜底路径上把任务置为终止态并落盘。
+func (p *Pipeline) finish(t *model.Task, status, msg string) {
+	t.Status = status
+	t.Error = msg
+	t.FinishedAt = time.Now()
+	p.publish(t)
+	if p.Hist != nil {
+		p.Hist.Persist(t)
+	}
+}
+
+// MarkInternalError 由队列在 Execute 的 panic 逃逸到队列层时调用（兜底收尾），
+// 通过历史存储加锁写状态，避免与 UI 读者并发读写共享任务指针。
+func (p *Pipeline) MarkInternalError(t *model.Task, r any) {
+	if p.Hist == nil || t == nil {
+		return
+	}
+	p.Hist.Finish(t.ID, model.StatusFailed, fmt.Sprintf("gitwo internal error: %v", r))
 }
 
 // notifyWebhook 部署结束后向配置的 webhook URL POST 结果摘要
@@ -357,6 +404,7 @@ func (p *Pipeline) step(t *model.Task, w io.Writer, name string, fn func(io.Writ
 	start := time.Now()
 	t.Stage = name
 	fmt.Fprintf(w, "\n====> [%s] %s\n", start.Local().Format("15:04:05"), name)
+	p.publish(t) // 长步骤（构建）开始时就发布 stage，UI 才能显示“正在构建”
 	err := fn(w)
 	sr := model.Step{Name: name, Start: start, End: time.Now(), OK: err == nil}
 	if err != nil {
@@ -366,6 +414,7 @@ func (p *Pipeline) step(t *model.Task, w io.Writer, name string, fn func(io.Writ
 		fmt.Fprintf(w, "====> [%s] done in %s\n", name, sr.End.Sub(start).Round(time.Millisecond))
 	}
 	t.Steps = append(t.Steps, sr)
+	p.publish(t)
 	return err
 }
 

@@ -219,6 +219,7 @@ func runServe(args []string) {
 		os.Exit(1)
 	}
 	q := queue.New(cfg.Workers, cfg.MaxQueued, pipe.Execute)
+	q.OnPanic = pipe.MarkInternalError // 队列层兜底：panic 也通过 history 加锁写状态
 	ui := webui.New(cfg, h, st, pipe, hist, q, slog.Default())
 
 	httpSrv := &http.Server{

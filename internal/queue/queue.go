@@ -22,8 +22,11 @@ var (
 
 type repoState struct {
 	pending []*model.Task
-	current *model.Task // task being executed right now
-	running bool        // a drain goroutine exists for this repo
+	current *model.Task // task being executed right now (回传给重复推送方)
+	// currentSHA 是 current.SHA 的快照：任务状态由流水线在私有副本上推进，
+	// 队列不能去读共享 Task 的字段（会与流水线/UI 并发）。
+	currentSHA string
+	running    bool // a drain goroutine exists for this repo
 }
 
 type Queue struct {
@@ -32,6 +35,9 @@ type Queue struct {
 	sem       chan struct{} // global concurrency cap (workers)
 	maxQueued int
 	exec      func(*model.Task)
+	// OnPanic 在 exec 抛出未捕获 panic 时收尾任务状态（生产环境接到
+	// history 上，加锁写状态）；nil 时退回直接改任务字段（仅测试场景）。
+	OnPanic func(*model.Task, any)
 }
 
 func New(workers, maxQueued int, exec func(*model.Task)) *Queue {
@@ -60,7 +66,7 @@ func (q *Queue) Enqueue(t *model.Task) (*model.Task, error) {
 		st = &repoState{}
 		q.states[k] = st
 	}
-	if st.current != nil && st.current.SHA == t.SHA {
+	if st.current != nil && st.currentSHA == t.SHA {
 		existing := st.current
 		q.mu.Unlock()
 		return existing, ErrDuplicate
@@ -97,15 +103,20 @@ func (q *Queue) drain(k string, st *repoState) {
 		t := st.pending[0]
 		st.pending = st.pending[1:]
 		st.current = t
+		st.currentSHA = t.SHA
 		q.mu.Unlock()
 
 		q.sem <- struct{}{}
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					t.Status = model.StatusFailed
-					t.Error = fmt.Sprintf("gitwo internal error: %v", r)
-					t.FinishedAt = time.Now()
+					if q.OnPanic != nil {
+						q.OnPanic(t, r)
+					} else {
+						t.Status = model.StatusFailed
+						t.Error = fmt.Sprintf("gitwo internal error: %v", r)
+						t.FinishedAt = time.Now()
+					}
 				}
 			}()
 			q.exec(t)
@@ -114,6 +125,7 @@ func (q *Queue) drain(k string, st *repoState) {
 
 		q.mu.Lock()
 		st.current = nil
+		st.currentSHA = ""
 		q.mu.Unlock()
 	}
 }

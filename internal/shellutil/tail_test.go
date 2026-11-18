@@ -3,6 +3,7 @@ package shellutil
 import (
 	"bytes"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -70,5 +71,29 @@ func TestTailBufferBounded(t *testing.T) {
 	tb3.Write([]byte("defgh"))
 	if tb3.String() != "defgh" {
 		t.Errorf("tail = %q", tb3.String())
+	}
+}
+
+// TestTailBufferConcurrentWrites：stdout/stderr 两个拷贝 goroutine 会并发写同
+// 一个 tailBuffer，必须无数据竞争（用 -race 跑本测试即校验），且缓存仍有界。
+func TestTailBufferConcurrentWrites(t *testing.T) {
+	tb := &tailBuffer{max: 1024}
+	chunk := []byte(strings.Repeat("y", 64))
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 500; j++ {
+				if _, err := tb.Write(chunk); err != nil {
+					t.Errorf("write: %v", err)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	if got := len(tb.String()); got > 1024 {
+		t.Fatalf("tail len = %d, want <= 1024", got)
 	}
 }

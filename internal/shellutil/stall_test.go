@@ -5,6 +5,8 @@ package shellutil
 import (
 	"bytes"
 	"context"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -67,5 +69,29 @@ func TestShellStallSparesBusySilentCommand(t *testing.T) {
 	}
 	if took := time.Since(start); took < 1500*time.Millisecond {
 		t.Errorf("killed after %v, want ~2s (ctx timeout) — CPU gating failed", took)
+	}
+}
+
+// TestShellStallSparesBusySilentCommandThroughWrapper：构建命令被 `timeout`
+// 之类包装器包住时，GNU timeout 会给子进程新建进程组；CPU 必须按父子进程树
+// 统计，否则真正干活的编译进程不可见，长静默编译会被误判“停滞”。
+func TestShellStallSparesBusySilentCommandThroughWrapper(t *testing.T) {
+	if _, err := os.Stat("/proc"); err != nil {
+		t.Skip("需要 /proc 统计进程树 CPU")
+	}
+	if _, err := exec.LookPath("timeout"); err != nil {
+		t.Skip("timeout 不可用")
+	}
+	var log bytes.Buffer
+	start := time.Now()
+	// 静默且 CPU 忙 1s，外面包一层 timeout（其子进程会被放进新进程组）。
+	// timeout 到点会杀掉子进程并以 124 退出，所以这里只断言“不是被判停滞”。
+	err := ShellStall(context.Background(), "", nil, &log, 250*time.Millisecond,
+		"timeout 1 sh -c 'while :; do :; done'")
+	if err != nil && strings.Contains(err.Error(), "停滞超过") {
+		t.Fatalf("timeout 包装的静默忙命令被误判为停滞: %v", err)
+	}
+	if took := time.Since(start); took < 800*time.Millisecond {
+		t.Errorf("returned after %v, want ~1s", took)
 	}
 }

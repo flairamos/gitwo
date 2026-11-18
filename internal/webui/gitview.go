@@ -814,15 +814,13 @@ func (u *UI) repoDeployPost(w http.ResponseWriter, r *http.Request) {
 	// Task.Repo 统一用全名 owner/name：与 push 触发的任务一致，
 	// 仓库作用域的流水线过滤和 /repos/<Task.Repo> 反链都依赖这一点。
 	task := u.Pipe.NewTask(rp.FullName(), branch, sha)
+	id := task.ID // 入队后任务归流水线所有：只保留 ID，不再直接读写该指针
 	u.Hist.Add(task)
 	if _, err := u.Queue.Enqueue(task); err != nil {
-		task.Status = model.StatusSkipped
-		task.Error = err.Error()
-		task.FinishedAt = time.Now()
-		u.Hist.Persist(task)
-		u.flashRedirect(w, r, "/pipelines/"+task.ID, err.Error())
+		u.Hist.Finish(id, model.StatusSkipped, err.Error())
+		u.flashRedirect(w, r, "/pipelines/"+id, err.Error())
 		return
 	}
-	u.Log.Info("manual deploy queued", "task", task.ID, "repo", rp.FullName(), "branch", branch, "by", user)
-	u.flashRedirect(w, r, "/pipelines/"+task.ID, "部署任务已创建")
+	u.Log.Info("manual deploy queued", "task", id, "repo", rp.FullName(), "branch", branch, "by", user)
+	u.flashRedirect(w, r, "/pipelines/"+id, "部署任务已创建")
 }

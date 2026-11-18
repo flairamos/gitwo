@@ -80,3 +80,61 @@ func TestCountRunning(t *testing.T) {
 		t.Error("success count wrong")
 	}
 }
+
+// TestUpdatePublishesProgress：流水线在私有副本上推进状态，Update 按快照
+// 覆盖可变字段；快照与调用方切片不共享底层数组。
+func TestUpdatePublishesProgress(t *testing.T) {
+	s, _ := New(10, "")
+	stored := &model.Task{ID: "t1", Repo: "o/r", Branch: "main", Status: model.StatusPending}
+	s.Add(stored)
+
+	// 模拟流水线：先拷一份私有副本，再在副本上推进并发布快照。
+	local := *stored
+	local.Status = model.StatusRunning
+	local.Stage = "build-backend"
+	local.Steps = make([]model.Step, 1, 8)
+	local.Steps[0] = model.Step{Name: "git-sync", OK: true}
+	s.Update("t1", &local)
+
+	got, ok := s.Get("t1")
+	if !ok {
+		t.Fatal("task lost after Update")
+	}
+	if got.Status != model.StatusRunning || got.Stage != "build-backend" || len(got.Steps) != 1 {
+		t.Fatalf("snapshot not published: %+v", got)
+	}
+	// 调用方继续修改私有副本（含复用 Steps 底层数组）不影响已发布的历史
+	local.Steps[0].Name = "mutated"
+	local.Steps = append(local.Steps, model.Step{Name: "build-backend", OK: true})
+	if again, _ := s.Get("t1"); again.Steps[0].Name != "git-sync" || len(again.Steps) != 1 {
+		t.Errorf("store aliases caller slice: %+v", again.Steps)
+	}
+	// 不可变字段保持不变
+	if again, _ := s.Get("t1"); again.Repo != "o/r" || again.Branch != "main" {
+		t.Errorf("immutable fields changed: %+v", again)
+	}
+}
+
+// TestFinishSkippedRecord：队列入队失败（queue full / duplicate）时任务以
+// 终止态落历史，不依赖调用方直接改共享 Task 指针。
+func TestFinishSkippedRecord(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "history.jsonl")
+	s, err := New(10, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Add(&model.Task{ID: "d1", Repo: "o/r", Branch: "main", Status: model.StatusPending})
+	s.Finish("d1", model.StatusSkipped, "queue full: too many pending deployments")
+
+	got, ok := s.Get("d1")
+	if !ok {
+		t.Fatal("task missing")
+	}
+	if got.Status != model.StatusSkipped || got.Error == "" || got.FinishedAt.IsZero() {
+		t.Fatalf("finish not applied: %+v", got)
+	}
+	s2, _ := New(10, path)
+	if reloaded := s2.Recent(10); len(reloaded) != 1 || reloaded[0].ID != "d1" {
+		t.Errorf("finished task not persisted: %+v", reloaded)
+	}
+}

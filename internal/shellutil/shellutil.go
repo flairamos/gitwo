@@ -43,9 +43,10 @@ func Shell(ctx context.Context, dir string, env []string, logw io.Writer, script
 }
 
 // ShellStall 同 Shell，但增加“停滞检测”：命令连续 stall 时间没有任何输出、
-// 且进程组几乎不消耗 CPU（典型场景：依赖下载卡死/网络不可达）时，终止整个
-// 进程组并返回停滞超时错误，让流水线快速失败而不是等满总超时。“有输出”
-// 或“CPU 忙”（go build 编译期是静默的）都不算停滞。stall <= 0 时等同 Shell。
+// 且整棵构建进程树（含经 timeout/setsid 之类包装器产生的后代进程）几乎不消耗
+// CPU（典型场景：依赖下载卡死/网络不可达）时，终止整个进程组并返回停滞超时
+// 错误，让流水线快速失败而不是等满总超时。“有输出”或“CPU 忙”（go build
+// 编译期是静默的）都不算停滞。stall <= 0 时等同 Shell。
 func ShellStall(ctx context.Context, dir string, env []string, logw io.Writer, stall time.Duration, script string) error {
 	if logw == nil {
 		logw = io.Discard
@@ -100,8 +101,11 @@ func runCmd(ctx context.Context, dir string, env []string, stdout, stderr io.Wri
 	waitCh := make(chan error, 1)
 	go func() { waitCh <- cmd.Wait() }()
 
-	// 停滞检测 watchdog：连续 stall 时间无任何输出且进程组近乎零 CPU → 判定
-	// 卡死。go build/npm 编译期可能长时间静默但 CPU 忙，纯“无输出”判定会误杀。
+	// 停滞检测 watchdog：连续 stall 时间无任何输出且构建进程树近乎零 CPU →
+	// 判定卡死。go build/npm 编译期可能长时间静默但 CPU 忙，纯“无输出”判定
+	// 会误杀。CPU 按父子进程树统计而不是按进程组：timeout/setsid 这类包装器
+	// 会给子进程新建进程组（deploy.yaml 里常见 `timeout 600 go build ...`），
+	// 只统计与 sh 同进程组的进程会漏掉真正干活的编译进程。
 	stallCh := make(chan struct{})
 	done := make(chan struct{})
 	defer close(done)
@@ -114,7 +118,7 @@ func runCmd(ctx context.Context, dir string, env []string, stdout, stderr io.Wri
 			if iv > time.Second {
 				iv = time.Second
 			}
-			// CPU 回看窗口：判定前要求最近 quiet 时间内进程组几乎没消耗 CPU。
+			// CPU 回看窗口：判定前要求最近 quiet 时间内进程树几乎没消耗 CPU。
 			// 超过 5s 的 stall 也只回看 5s——真正的卡死（网络等待）CPU 接近 0。
 			quiet := stall
 			if quiet > 5*time.Second {
@@ -125,7 +129,6 @@ func runCmd(ctx context.Context, dir string, env []string, stdout, stderr io.Wri
 				cpu uint64
 			}
 			var hist []sample
-			procOK := true // /proc 不可用（非 Linux unix）时退回纯无输出判定
 			t := time.NewTicker(iv)
 			defer t.Stop()
 			for {
@@ -137,13 +140,14 @@ func runCmd(ctx context.Context, dir string, env []string, stdout, stderr io.Wri
 						hist = hist[:0] // 输出恢复：静默期重新计时
 						continue
 					}
-					if !procOK {
+					cpu, haveProc, alive := procTreeCpuTicks(cmd.Process.Pid)
+					if !haveProc {
+						// 拿不到 /proc（非 Linux unix）：退回纯“无输出”判定
 						close(stallCh)
 						return
 					}
-					cpu, found := procGroupCpuTicks(cmd.Process.Pid)
-					if !found {
-						// 进程组已不存在：等 waitCh 收尾，不强行判定
+					if !alive {
+						// 进程树根（我们的 sh）已不存在：等 waitCh 收尾，不强行判定
 						return
 					}
 					hist = append(hist, sample{now, cpu})
@@ -208,19 +212,26 @@ func runCmd(ctx context.Context, dir string, env []string, stdout, stderr io.Wri
 	return nil
 }
 
-// procGroupCpuTicks 汇总进程组 pgid 内所有进程的 utime+stime（clock ticks），
-// 通过扫描 /proc 实现（子进程存活期间其 CPU 只记在自己的 stat 里，父进程的
-// cutime 只含已回收的子进程）。ok=false 表示 /proc 不可用或进程组已消失，
-// 调用方据此退回纯无输出判定或放弃本轮判定。
-func procGroupCpuTicks(pgid int) (uint64, bool) {
+// procTreeCpuTicks 汇总 root 及其全部后代进程的 CPU（utime+stime+cutime+cstime，
+// 单位 clock ticks），用于停滞判定。按父子关系遍历 /proc/<pid>/stat 的 ppid
+// 构树，而不是按进程组匹配：`timeout`（GNU coreutils）等包装器会给子进程新建
+// 进程组，只统计同组进程会完全看不到真正干活的编译进程，导致长静默编译被误判
+// 停滞。把 cutime/cstime 也计入，避免已退出子进程消耗的 CPU 被漏掉。
+// haveProc=false 表示 /proc 不可用（非 Linux unix），调用方退回纯“无输出”判定；
+// rootAlive=false 表示 root 进程已不存在，调用方应停止本轮判定。
+func procTreeCpuTicks(root int) (total uint64, haveProc bool, rootAlive bool) {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
-		return 0, false
+		return 0, false, false
 	}
-	var total uint64
-	found := false
+	type procInfo struct {
+		ppid  int
+		ticks uint64
+	}
+	procs := make(map[int]procInfo, len(entries))
 	for _, e := range entries {
-		if !e.IsDir() {
+		pid, err := strconv.Atoi(e.Name())
+		if err != nil {
 			continue
 		}
 		data, err := os.ReadFile("/proc/" + e.Name() + "/stat")
@@ -228,26 +239,48 @@ func procGroupCpuTicks(pgid int) (uint64, bool) {
 			continue // 进程刚好退出：跳过
 		}
 		// stat 形如 "pid (comm) state ppid pgrp …"；comm 可含空格与括号，
-		// 以最后一个 ')' 切开后再按空白分列。切出的字段：[0]=state、
-		// [2]=pgrp、[11]=utime、[12]=stime。
+		// 以最后一个 ')' 切开后再按空白分列。切出的字段：[0]=state、[1]=ppid、
+		// [11]=utime、[12]=stime、[13]=cutime、[14]=cstime。
 		i := strings.LastIndexByte(string(data), ')')
 		if i < 0 {
 			continue
 		}
 		fields := strings.Fields(string(data[i+1:]))
-		if len(fields) < 13 {
+		if len(fields) < 15 {
 			continue
 		}
-		pgrp, err := strconv.Atoi(fields[2])
-		if err != nil || pgrp != pgid {
+		ppid, err := strconv.Atoi(fields[1])
+		if err != nil {
 			continue
 		}
-		found = true
-		ut, _ := strconv.ParseUint(fields[11], 10, 64)
-		st, _ := strconv.ParseUint(fields[12], 10, 64)
-		total += ut + st
+		var ticks uint64
+		for _, idx := range [...]int{11, 12, 13, 14} {
+			v, _ := strconv.ParseUint(fields[idx], 10, 64)
+			ticks += v
+		}
+		procs[pid] = procInfo{ppid: ppid, ticks: ticks}
 	}
-	return total, found
+	if _, ok := procs[root]; !ok {
+		return 0, true, false // 根进程（我们启动的 sh）已退出
+	}
+	children := make(map[int][]int, len(procs))
+	for pid, p := range procs {
+		children[p.ppid] = append(children[p.ppid], pid)
+	}
+	seen := make(map[int]bool, 16)
+	stack := []int{root}
+	for len(stack) > 0 {
+		pid := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if seen[pid] {
+			continue
+		}
+		seen[pid] = true
+		p := procs[pid]
+		total += p.ticks
+		stack = append(stack, children[pid]...)
+	}
+	return total, true, true
 }
 
 // killAndWait 向进程组发 SIGTERM，5 秒未退再 SIGKILL，返回最终等待结果。

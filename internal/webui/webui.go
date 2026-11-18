@@ -6,6 +6,7 @@ package webui
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
@@ -59,6 +60,10 @@ func New(cfg *appconfig.Config, home appconfig.Home, st *store.Store, pipe *pipe
 
 // onPush turns pushed branches into pipeline tasks, honoring the repo's
 // deploy branch filter. Same-repo serialization and dedup happen in the queue.
+//
+// 注意：任务入队后由流水线在私有副本上推进状态，这里不能在 Enqueue 之后
+// 再读写同一个 *model.Task（会与 Execute/UI 读者并发）。失败记录统一走
+// Hist.Finish（历史存储内部加锁）。
 func (u *UI) onPush(repo string, updates []gitserver.RefUpdate) {
 	rp, ok := u.Store.GetRepo(repo)
 	if !ok {
@@ -75,29 +80,22 @@ func (u *UI) onPush(repo string, updates []gitserver.RefUpdate) {
 			continue
 		}
 		task := u.Pipe.NewTask(repo, up.Branch, up.NewSHA)
-		u.Hist.Add(task) // register first: Enqueue may start it immediately
+		id, shortSHA := task.ID, task.ShortSHA() // 入队后 task 归流水线所有
+		u.Hist.Add(task)                         // register first: Enqueue may start it immediately
 		existing, err := u.Queue.Enqueue(task)
 		switch {
 		case err == nil:
-			u.Log.Info("deployment queued from push", "task", task.ID, "repo", repo,
-				"branch", up.Branch, "sha", task.ShortSHA())
-		case err == queue.ErrDuplicate:
-			task.Status = model.StatusSkipped
-			task.Error = "duplicate: identical task already queued/running as " + existing.ID
-			task.FinishedAt = time.Now()
-			u.Hist.Persist(task)
+			u.Log.Info("deployment queued from push", "task", id, "repo", repo,
+				"branch", up.Branch, "sha", shortSHA)
+		case errors.Is(err, queue.ErrDuplicate):
+			u.Hist.Finish(id, model.StatusSkipped,
+				"duplicate: identical task already queued/running as "+existing.ID)
 			u.Log.Info("duplicate push collapsed", "repo", repo, "branch", up.Branch, "existing", existing.ID)
-		case err == queue.ErrBusy:
-			task.Status = model.StatusSkipped
-			task.Error = err.Error()
-			task.FinishedAt = time.Now()
-			u.Hist.Persist(task)
+		case errors.Is(err, queue.ErrBusy):
+			u.Hist.Finish(id, model.StatusSkipped, err.Error())
 			u.Log.Warn("push skipped: queue full", "repo", repo, "branch", up.Branch)
 		default:
-			task.Status = model.StatusFailed
-			task.Error = err.Error()
-			task.FinishedAt = time.Now()
-			u.Hist.Persist(task)
+			u.Hist.Finish(id, model.StatusFailed, err.Error())
 			u.Log.Error("enqueue failed", "repo", repo, "err", err)
 		}
 	}

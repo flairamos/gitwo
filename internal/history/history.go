@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"os"
 	"sync"
+	"time"
 
 	"gitwo/internal/model"
 )
@@ -63,7 +64,17 @@ func (s *Store) Add(t *model.Task) {
 }
 
 // Persist appends a finished task to the history file (best effort).
+// 入参应是调用方私有的任务副本：存储里的任务由 Update/Finish 加锁更新，
+// 不要在这里直接读写共享任务指针。
 func (s *Store) Persist(t *model.Task) {
+	if t == nil {
+		return
+	}
+	s.persist(*t)
+}
+
+// persist 写一行 JSONL（调用方持有任务快照，不在锁内做文件 I/O）。
+func (s *Store) persist(t model.Task) {
 	if s.path == "" || t.FinishedAt.IsZero() {
 		return
 	}
@@ -79,6 +90,59 @@ func (s *Store) Persist(t *model.Task) {
 	defer f.Close()
 	if _, err := f.Write(append(line, '\n')); err != nil {
 		slog.Warn("history append failed", "err", err)
+	}
+}
+
+// Update atomically replaces the stored task's progress fields with src's.
+// 流水线在私有副本上推进任务状态，然后按阶段发布快照；这样 Web UI 读历史
+// （Recent/Get）与流水线写状态不会并发读写同一个 Task。
+// 只覆盖会变化的字段：ID/Repo/Branch/Workdir/LogFile 等在 NewTask 后不再修改，
+// 保持不变可让调用方安全地读取这些字段（例如去重时读 existing.ID）。
+func (s *Store) Update(id string, src *model.Task) {
+	if src == nil {
+		return
+	}
+	steps := append([]model.Step(nil), src.Steps...)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := len(s.tasks) - 1; i >= 0; i-- {
+		if s.tasks[i].ID != id {
+			continue
+		}
+		dst := s.tasks[i]
+		dst.Status = src.Status
+		dst.Stage = src.Stage
+		dst.Error = src.Error
+		dst.SHA = src.SHA
+		dst.StartedAt = src.StartedAt
+		dst.FinishedAt = src.FinishedAt
+		dst.Steps = steps
+		return
+	}
+}
+
+// Finish marks a task that never entered the pipeline (queue full, duplicate
+// push, or a panic escaping Execute) with a terminal status and appends it to
+// the history file. It updates the stored task under the store lock instead of
+// letting callers mutate a shared pointer.
+func (s *Store) Finish(id, status, errMsg string) {
+	var snapshot *model.Task
+	s.mu.Lock()
+	for i := len(s.tasks) - 1; i >= 0; i-- {
+		if s.tasks[i].ID != id {
+			continue
+		}
+		cp := s.tasks[i].Clone()
+		cp.Status = status
+		cp.Error = errMsg
+		cp.FinishedAt = time.Now()
+		*s.tasks[i] = cp
+		snapshot = &cp
+		break
+	}
+	s.mu.Unlock()
+	if snapshot != nil {
+		s.persist(*snapshot)
 	}
 }
 
