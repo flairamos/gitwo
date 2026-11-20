@@ -159,7 +159,7 @@ build:
     output: target/app.jar
 run:
   command: java -jar app.jar
-  files: [config/application.yml]              # 运行所需的非二进制文件
+  files: [config/application.yml]              # 单文件：同步到运行目录根（落为 application.yml）；要保留 config/ 结构写 files: [config]
 
 # Python（解释运行；依赖用 venv + pip）
 type: service
@@ -181,7 +181,7 @@ build:
 ```
 
 说明：
-- `run.files`（可选）把仓库根的文件/目录同步进运行目录——解释型语言（python/node/java 多文件）必备，Go 单二进制不需要；
+- `run.files`（可选）把文件/目录同步进服务运行目录——解释型语言（python/node/java 多文件）必备，Go 单二进制不需要。要点：① 条目**相对仓库根**（该提交的构建工作区，与 `deploy.yaml` 同级）解析，不是相对 `build.backend.dir` / `run.workdir`；② 同步到 `run.workdir`（缺省 `apps/<归属_仓库>/`），**单文件条目只保留文件名放到运行目录根**（`files: [configs/config.yaml]` → 运行目录下的 `config.yaml`），要保留子目录结构请写目录条目 `files: [configs]`（按相对路径整体镜像）；③ 工作区只包含**已提交**内容（每次部署 `git clean -fdx`），未提交 / 被 `.gitignore` 忽略的配置不会被同步，构建期生成的文件可以列（本步骤在构建之后）；
 - 包装器命令（`npm start`、`mvn spring-boot:run`）也已支持：服务以独立进程组启动，停止时整组信号；Gitwo 会记录启动后的真实进程名（`app.name`）用于 PID 校验（兼容 `python3.14` vs `python3` 这类版本后缀）；
 - 工具链版本由服务器决定（同一环境所有仓库共享）；需要按仓库多版本时用 nvm/sdkman/pyenv 并写进 `run.env` 或命令本身。
 

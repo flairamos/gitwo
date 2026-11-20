@@ -307,6 +307,13 @@ build:
     output: app
 run:
   command: ./app</code></pre>
+  <h3>run.files 说明</h3>
+  <ul style="font-size:13.5px;line-height:1.85">
+    <li><b>相对仓库根解析</b>：条目相对该提交的构建工作区根目录（<code>&lt;程序目录&gt;/workspaces/&lt;归属_仓库&gt;/</code>，与 <code>deploy.yaml</code> 同级），不是相对 <code>build.backend.dir</code> 或 <code>run.workdir</code>。</li>
+    <li><b>同步到运行目录</b>：服务的工作目录是 <code>run.workdir</code>（缺省 <code>&lt;程序目录&gt;/apps/&lt;归属_仓库&gt;/</code>）。<b>单文件条目只保留文件名</b>放到运行目录根（如 <code>files: [configs/config.yaml]</code> 会变成运行目录下的 <code>config.yaml</code>）；要保留子目录结构请写目录条目 <code>files: [configs]</code>（按相对路径整体镜像）。</li>
+    <li><b>只同步已提交内容</b>：每次部署都会 <code>git checkout</code> 后 <code>git clean -fdx</code>，工作区里只有提交过的文件；只在本地或被 <code>.gitignore</code> 忽略的配置文件不会被同步。构建期生成的文件可以列（该步骤在构建之后执行）。</li>
+    <li><b>排查</b>：报 <code>run.files entry "…" not found in repo</code> 时，先确认文件确实在仓库里且已提交（<code>git ls-files | grep config</code>），再检查是否在子目录（路径要写全）或其实是构建产物。</li>
+  </ul>
   <div class="note">
     构建环境注入 <code>GITWO_REPO / GITWO_BRANCH / GITWO_COMMIT / GITWO_TASK / GITWO_PORT</code> 与独立 <code>TMPDIR</code>；
     每条命令有超时与进程组回收。零配置原生前端：<code>type: static</code> 且不写 build 段时，仓库根目录即站点。
@@ -369,7 +376,7 @@ verify_index: true       # 前端部署后校验 index.html
 port_min: 20000          # 自动分配端口范围
 port_max: 23999
 notify_webhook: ""       # 部署结束回调 URL（JSON）
-timeouts: {git: 5m, build: 10m, deploy: 5m, stop: 15s, start_wait: 2s}</code></pre>
+timeouts: {git: 5m, build: 10m, deploy: 5m, stop: 15s, start_wait: 2s, stall: 20s}</code></pre>
   <p style="color:var(--muted);font-size:13px">未知字段会被拒绝启动（防拼写错误），修改后重启生效。</p>
 </div></section>
 
@@ -379,6 +386,7 @@ timeouts: {git: 5m, build: 10m, deploy: 5m, stop: 15s, start_wait: 2s}</code></p
   <details><summary>SSH 提示 Permission denied (publickey)</summary><p>公钥未在「账户设置 → SSH 公钥」登记；或一把钥匙已绑定其他账户；测试角色没有 git 权限。用 <code>ssh -T -p 2222 git@host</code> 可验证握手。</p></details>
   <details><summary>push 提示「主分支受保护」</summary><p>组织仓库的主分支仅组织创建者/管理员可直接推送。请推送到自己的分支（<code>git push origin HEAD:feature/xxx</code>），由管理者合并。</p></details>
   <details><summary>流水线失败 no deploy.yaml / output not found</summary><p>仓库根目录需有 deploy.yaml；检查构建命令输出与 <code>output</code> 路径是否一致，可在流水线详情查看每步日志。</p></details>
+  <details><summary>流水线失败 run.files entry "…" not found</summary><p><code>run.files</code> 条目相对<b>仓库根（构建工作区）</b>解析，且工作区只包含已提交内容；确认文件已提交、在子目录时写全路径（如 <code>configs/config.yaml</code>），构建产物则写生成后的路径。单文件条目会同步到运行目录根（只保留文件名），要保留子目录结构请写目录条目。</p></details>
   <details><summary>服务部署后打不开</summary><p>服务必须读取注入的 <code>$PORT</code> 监听；通过 <code>/api/&lt;仓库&gt;/</code> 代理访问即可，无需暴露 20000-23999 端口。部署详情页会自动附 app.log 尾部。</p></details>
   <details><summary>如何备份 / 迁移？</summary><p>数据全部是文件：拷贝整个程序目录（repos/ workspaces/ apps/ data/）即可，无数据库。任务日志在 /tmp 下，丢失不影响历史摘要。</p></details>
   <details><summary>安全提醒</summary><p>deploy.yaml 的构建/启动命令以 gitwo 运行用户身份在宿主机执行——能 push 即等同该用户级命令执行权限。请只授予可信成员写权限，不要用 root 运行。</p></details>
