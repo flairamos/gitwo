@@ -354,6 +354,9 @@ func (p *Pipeline) run(t *model.Task) (err error) {
 		if dc.StaticServer != nil {
 			site.SPA = dc.StaticServer.SPAServe
 		}
+		if dc.Run != nil {
+			site.Workdir = dc.Run.Workdir // 供 Web UI 定位 app.log
+		}
 		return writeSiteMeta(p.Params.AppDirFor(t.Repo), site)
 	}); err != nil {
 		return err
@@ -643,6 +646,10 @@ type SiteInfo struct {
 	StaticDir string `json:"static_dir,omitempty"`
 	Port      int    `json:"port,omitempty"`
 	SPA       *bool  `json:"spa,omitempty"`
+	// Workdir 是服务运行目录（run.workdir，缺省 apps/<slug>）：app.log /
+	// app.pid 都在这里。写入描述符供 Web UI 定位运行日志（自定义 workdir 时
+	// 不能假设是 apps/<slug>）。
+	Workdir   string `json:"workdir,omitempty"`
 	UpdatedAt string `json:"updated_at"`
 }
 

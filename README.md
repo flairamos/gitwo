@@ -99,7 +99,7 @@ git add -A && git commit -m "first" && git push origin main
 | API 代理 | `/api/<slug>/…` 反代到该仓库已部署的后端服务（127.0.0.1:$PORT），全 HTTP 方法可用——前后端共用 9527 一个端口，后端程序无需单独暴露端口或开防火墙；权限与站点一致（private 需登录） |
 | 缺陷管理 | 仓库级缺陷单（严格隔离在所属仓库）：测试统一以 markdown 文档提交（复现步骤/预期结果/实际结果/备注，可附 ≤9 张截图），指派给指定开发人员；状态流转 **待修复 → 待复测 → 已关闭**，复测不通过退回待修复，误报可由提交人直接关闭；流转自动入档，测试/开发在缺陷页讨论（markdown）；被指派人只能是具有该仓库写权限的人员（测试角色不能被指派） |
 | 需求管理 | 仓库级迭代需求文档（严格隔离在所属仓库）：任何可读者以 markdown 在线编写（浏览器直接编辑），**标题平铺**列表、点进详情看全文；**只有创建者可编辑内容**，其他人只读；状态流转 **待开发 → 待核查 → 已关闭**，有写权限者（代码提交者）提交核查，创建者验收通过后永久关闭（核查不通过可退回，作废可直接关闭）；流转自动入档；同组织任何角色可见 |
-| 可观测 | `/pipelines` 实时刷新的流水线列表与详情（步骤耗时+实时日志）；任务日志归档 `/tmp/gitwo/logs/<repo>/`；`/api/status` JSON 概览 |
+| 可观测 | `/pipelines` 实时刷新的流水线列表与详情（步骤耗时+实时日志）；任务日志归档 `/tmp/gitwo/logs/<repo>/`；**仓库页「运行日志」分页查看服务 `app.log`**（按仓库鉴权，仅开发者/管理员）；`/api/status` JSON 概览 |
 | 运维 | Gitwo 自身 systemd 常驻（`KillMode=process` 保护被部署服务）；优雅停机等运行中任务完成；Gitwo 重启不影响已部署服务（nohup 独立） |
 
 ## 目录布局
@@ -243,6 +243,8 @@ build:
 | `GET /repos/{owner}/{name}/bugs[/new|/{id}]` 等 | 缺陷列表/提交/详情；`POST .../bugs/{id}/status` `POST .../bugs/{id}/comment` 状态流转与讨论；`GET .../bugs/{id}/files/{file}` 截图 |
 | `GET /repos/{owner}/{name}/reqs[/new|/{id}[/edit]]` 等 | 需求文档列表（标题平铺）/创建/详情/编辑（仅创建者）；`POST .../reqs/{id}/status` 状态流转 |
 | `GET /api/tasks/{id}/log` | 任务日志 JSON（详情页轮询此接口） |
+| `GET /repos/{owner}/{name}/logs` | 仓库运行日志页：服务 `app.log` 最新一页（仅开发者/管理员，按仓库鉴权） |
+| `GET /api/repos/{owner}/{name}/logs?before=&lines=` | 运行日志分页 JSON：从文件尾向前读，每页 ≤200 行 / 256 KiB，`before` 为字节游标（"加载更早"） |
 | `GET /api/status` | 平台状态 JSON |
 | `GET /sites/{owner_name}/{path...}` | 部署站点访问（`{owner_name}` = `归属_仓库名`） |
 | `ANY /api/{owner_name}/[path…]` | 后端 API 代理（全 HTTP 方法；仅 type service/dual 且已部署的仓库） |

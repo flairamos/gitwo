@@ -156,6 +156,9 @@ func (u *UI) Handler() http.Handler {
 	mux.HandleFunc("GET /repos/{owner}/{name}/settings", u.repoSettingsPage)
 	mux.HandleFunc("POST /repos/{owner}/{name}/settings", u.repoSettingsPost)
 	mux.HandleFunc("POST /repos/{owner}/{name}/deploy", u.repoDeployPost)
+	// 仓库运行日志（app.log）：仓库隔离，仅开发者/管理员可读
+	mux.HandleFunc("GET /repos/{owner}/{name}/logs", u.repoLogsPage)
+	mux.HandleFunc("GET /api/repos/{owner}/{name}/logs", u.repoLogsAPI)
 
 	// admin
 	mux.HandleFunc("GET /admin", u.adminPage)

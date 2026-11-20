@@ -799,6 +799,7 @@ function filterRepos(q){q=q.toLowerCase();document.querySelectorAll('.repo-item'
 <a href="/repos/{{.Repo.FullName}}" class="{{if eq .Tab "code"}}active{{end}}">{{oct "file"}} README</a>
 {{else}}<a href="/repos/{{.Repo.FullName}}" class="{{if eq .Tab "code"}}active{{end}}">{{oct "code"}} 代码</a>{{end}}
 <a href="/repos/{{.Repo.FullName}}/commits/{{.Head}}" class="{{if eq .Tab "commits"}}active{{end}}">{{oct "commit"}} 提交历史</a>
+<a href="/repos/{{.Repo.FullName}}/logs" class="{{if eq .Tab "logs"}}active{{end}}">{{oct "file"}} 运行日志</a>
 {{end}}
 <a href="/repos/{{.Repo.FullName}}/reqs" class="{{if eq .Tab "reqs"}}active{{end}}">{{oct "file"}} 需求</a>
 <a href="/repos/{{.Repo.FullName}}/bugs" class="{{if eq .Tab "bugs"}}active{{end}}">{{oct "x"}} 缺陷</a>
@@ -1573,6 +1574,61 @@ function filterRepos(q){q=q.toLowerCase();document.querySelectorAll('.repo-item'
 <div class="box"><div class="box-header">{{.Title}}</div>
 <div class="box-row" style="padding:24px">{{.Body}}</div></div>
 </main>{{template "foot"}}{{end}}
+
+{{define "applog"}}
+{{template "head" .Base}}{{template "nav" .Base}}
+{{template "repohead" .}}
+<main>
+<div class="box">
+<div class="box-header">{{oct "file"}} 运行日志 <code>app.log</code>
+<span class="spacer"></span>
+{{if .Exists}}<span class="muted" id="log-meta"></span>
+<button class="btn ghost" type="button" id="log-refresh">刷新最新</button>
+<button class="btn ghost" type="button" id="log-more"{{if not .HasMore}} disabled{{end}}>加载更早</button>{{end}}
+</div>
+{{if .Exists}}
+<div style="border-top:1px solid var(--border2)"><pre id="log" style="margin:0;max-height:70vh;overflow:auto;background:var(--inset);border:0;border-radius:0">{{.Lines}}</pre></div>
+{{else}}
+<div class="empty">{{.Reason}}</div>
+{{end}}
+</div>
+<p class="muted" style="font-size:12.5px">路径：<code>{{.LogPath}}</code>　（服务 stdout/stderr 追加写入；程序自带日志系统写的文件不在这里）</p>
+{{if .Exists}}
+<script>
+(function(){
+  var api = "{{.APIURL}}";
+  var pre = document.getElementById("log");
+  var meta = document.getElementById("log-meta");
+  var more = document.getElementById("log-more");
+  var refresh = document.getElementById("log-refresh");
+  var start = {{.Start}};
+  function fmt(n){var u=["B","KB","MB","GB"],i=0;while(n>=1024&&i<u.length-1){n/=1024;i++;}return (i?n.toFixed(1):n)+" "+u[i];}
+  function setMeta(s,m){if(meta)meta.textContent="大小 "+fmt(s)+(m?" · 还可加载更早":"");if(more)more.disabled=!m;}
+  function fetchPage(before){
+    var u = api + "?lines=200" + (before > 0 ? "&before=" + before : "");
+    return fetch(u, {credentials:"same-origin"}).then(function(r){return r.json();});
+  }
+  setMeta({{.Size}}, {{if .HasMore}}true{{else}}false{{end}});
+  if (more) more.onclick = function(){
+    if (more.disabled) return;
+    more.disabled = true;
+    fetchPage(start).then(function(d){
+      if (!d.exists) return;
+      pre.textContent = d.lines.join("\n") + "\n" + pre.textContent;
+      start = d.start; setMeta(d.size, d.has_more);
+    }).catch(function(){ more.disabled = false; });
+  };
+  if (refresh) refresh.onclick = function(){
+    fetchPage(0).then(function(d){
+      if (!d.exists) return;
+      pre.textContent = d.lines.join("\n");
+      start = d.start; setMeta(d.size, d.has_more);
+    });
+  };
+})();
+</script>
+{{end}}
+</main>{{template "foot"}}{{end}}
 `))
 
 // ---- page data structs ----
@@ -1613,6 +1669,20 @@ type repoNewData struct {
 	Owners []ownerOption
 	Error  string
 	Name   string
+}
+
+// appLogData 是仓库运行日志页（app.log）的数据。
+type appLogData struct {
+	Base base
+	RepoPage
+	Exists  bool
+	Reason  string
+	Lines   string // 已拼接好的最新一页（服务端渲染，无 JS 也能看）
+	Size    int64
+	Start   int64
+	HasMore bool
+	LogPath string
+	APIURL  string
 }
 
 // RepoPage carries the fields the shared repo header (repohead template)

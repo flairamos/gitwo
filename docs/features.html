@@ -28,6 +28,7 @@
     <div class="card"><h4>✎ 缺陷协作</h4><p>测试以统一 markdown 文档提交缺陷（复现步骤/预期/实际，可附截图），指派给开发；状态：待修复 → 待复测 → 已关闭。</p></div>
     <div class="card"><h4>▤ 需求文档</h4><p>仓库级迭代需求，浏览器在线编写 markdown；只有创建者可编辑；开发提交核查、创建者验收关闭，全程留痕。</p></div>
     <div class="card"><h4>◐ 站点与 API 托管</h4><p>前端 <code>/sites/&lt;仓库&gt;/</code>、后端 <code>/api/&lt;仓库&gt;/</code> 反代到服务端口——后端口不再逐台暴露，防火墙只开一个端口。</p></div>
+    <div class="card"><h4>▤ 运行日志</h4><p>仓库页「运行日志」分页查看服务运行目录的 <code>app.log</code>：从文件尾向前翻页，按仓库鉴权（仅开发者/管理员，测试角色与匿名不可见）。</p></div>
     <div class="card"><h4>↺ 部署回滚</h4><p>任务详情与最近部署列表可「回到此版本」，把任意历史提交重新构建部署，出错一键回退。</p></div>
     <div class="card"><h4>🔔 结果通知</h4><p>配置 <code>notify_webhook</code> 后，每次部署结束（成功/失败）POST JSON 摘要到你的 IM / CI 网关。</p></div>
     <div class="card"><h4>⚙ 零依赖运维</h4><p>数据目录 = 程序目录，全部为 YAML/JSONL 与文件，备份即拷目录；systemd 一条命令常驻，升级不中断已部署服务。</p></div>
