@@ -131,7 +131,8 @@ git add -A && git commit -m "first" && git push origin main
 | `service` | Go 服务（可带前端）→ 服务直连端口 | `build.backend` + `run` |
 | `dual` | 前端与 API 双产物（前端仍由平台托管） | `build.frontend` + `build.backend` + `run` |
 
-完整字段与进阶示例见 [examples/](examples/)（`deploy-*-full.yaml`），最小例子在 `examples/demo`（service）与 `examples/demo-static`（static）。
+**完整字段说明（每个配置项 + Go / Python / Java / 原生静态页面 / Vue SPA 示例）见在线文档：[deploy.yaml 规范](https://flairamos.github.io/gitwo/deploy-yaml.html)。**
+进阶示例见 [examples/](examples/)（`deploy-*-full.yaml`），最小例子在 `examples/demo`（service）与 `examples/demo-static`（static）。
 
 要点：
 - **构建型 vs 原生前端自动区分**：

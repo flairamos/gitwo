@@ -117,6 +117,7 @@ footer .in{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
   <a class="lnk" href="#start">快速开始</a>
   <a class="lnk" href="#roles">权限</a>
   <a class="lnk" href="#git">Git 使用</a>
+  <a class="lnk" href="deploy-yaml.html">deploy.yaml</a>
   <a class="lnk" href="#workflow">协作流程</a>
   <a class="lnk" href="#faq">FAQ</a>
   <span class="sp"></span>
@@ -277,15 +278,15 @@ remote: 请推送到自己的分支：git push origin HEAD:your-branch
 
 <section id="deployyaml"><div class="wrap">
   <h2>deploy.yaml 规范</h2>
-  <p class="sub">仓库根目录声明构建与运行方式，push 后由流水线执行。三种类型：static / service / dual。</p>
+  <p class="sub">仓库根目录一个 <code>deploy.yaml</code> 声明构建与运行方式，push 后由流水线执行。三种类型：<code>static</code> / <code>service</code> / <code>dual</code>，未知字段会被直接拒绝（防拼写错误）。</p>
 <pre><code># 静态前端（Vite/Vue/React/任意构建器）
 type: static
 build:
   frontend:
     command: npm ci &amp;&amp; npm run build
-    output: dist            # 构建产物目录 → /sites/&lt;仓库&gt;/
+    output: dist
 
-# Go 后端服务（自动分配端口，注入 $PORT）
+# Go 后端服务（自动分配端口并注入 $PORT）
 type: service
 build:
   backend:
@@ -293,31 +294,16 @@ build:
     output: app
 run:
   command: ./app
-  files: [config.yaml]      # 运行所需非二进制文件（可选）
-  health: /healthz          # 启动存活探测（可选）
-
-# 前端 + API 双产物
-type: dual
-build:
-  frontend:
-    command: npm ci &amp;&amp; npm run build
-    output: dist
-  backend:
-    command: go build -o app .
-    output: app
-run:
-  command: ./app</code></pre>
-  <h3>run.files 说明</h3>
-  <ul style="font-size:13.5px;line-height:1.85">
-    <li><b>相对仓库根解析</b>：条目相对该提交的构建工作区根目录（<code>&lt;程序目录&gt;/workspaces/&lt;归属_仓库&gt;/</code>，与 <code>deploy.yaml</code> 同级），不是相对 <code>build.backend.dir</code> 或 <code>run.workdir</code>。</li>
-    <li><b>同步到运行目录</b>：服务的工作目录是 <code>run.workdir</code>（缺省 <code>&lt;程序目录&gt;/apps/&lt;归属_仓库&gt;/</code>）。<b>单文件条目只保留文件名</b>放到运行目录根（如 <code>files: [configs/config.yaml]</code> 会变成运行目录下的 <code>config.yaml</code>）；要保留子目录结构请写目录条目 <code>files: [configs]</code>（按相对路径整体镜像）。</li>
-    <li><b>只同步已提交内容</b>：每次部署都会 <code>git checkout</code> 后 <code>git clean -fdx</code>，工作区里只有提交过的文件；只在本地或被 <code>.gitignore</code> 忽略的配置文件不会被同步。构建期生成的文件可以列（该步骤在构建之后执行）。</li>
-    <li><b>排查</b>：报 <code>run.files entry "…" not found in repo</code> 时，先确认文件确实在仓库里且已提交（<code>git ls-files | grep config</code>），再检查是否在子目录（路径要写全）或其实是构建产物。</li>
-  </ul>
+  files: [config.yaml]      # 运行所需非二进制文件（可选）</code></pre>
   <div class="note">
-    构建环境注入 <code>GITWO_REPO / GITWO_BRANCH / GITWO_COMMIT / GITWO_TASK / GITWO_PORT</code> 与独立 <code>TMPDIR</code>；
-    每条命令有超时与进程组回收。零配置原生前端：<code>type: static</code> 且不写 build 段时，仓库根目录即站点。
+    完整字段说明（<code>type</code> / <code>env</code> / <code>build.frontend</code> / <code>build.backend</code> /
+    <code>run</code> / <code>run.files</code> / <code>static_server</code>）、执行环境与行为，以及
+    <b>Go / Python / Java / 原生静态页面 / Vue SPA</b> 示例，见独立栏目：
   </div>
+  <p style="margin:18px 0 0">
+    <a class="btn" href="deploy-yaml.html">完整 deploy.yaml 规范 →</a>
+    <a class="btn ghost" href="https://github.com/flairamos/gitwo/tree/main/examples" style="margin-left:8px">示例仓库文件</a>
+  </p>
 </div></section>
 
 <section id="workflow"><div class="wrap">
