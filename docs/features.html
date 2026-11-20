@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>功能全景 · Gitwo</title>
+<meta name="description" content="一个平台覆盖「写代码 → 构建部署 → 测试验证 → 需求迭代」的团队工作流。">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<nav id="site-nav"></nav>
+
+<header class="hero sm"><div class="wrap">
+  <h1>功能全景</h1>
+  <p class="lead">一个平台覆盖「写代码 → 构建部署 → 测试验证 → 需求迭代」的团队工作流。</p>
+</div></header>
+
+<section><div class="wrap">
+  
+  
+  <div class="grid g3">
+    <div class="card"><h4>⌂ Git 托管（HTTP/SSH）</h4><p>内置 git 智能 HTTP 协议与 SSH 服务（默认 :2222），clone / push 开箱即用；账户设置里登记多把 SSH 公钥即可推送。</p></div>
+    <div class="card"><h4>⇪ push 即部署</h4><p>推送触发构建队列：同仓库串行、跨仓库并行、相同 commit 去重；静态站点与 Go 服务（nohup + PID 校验）自动部署。</p></div>
+    <div class="card"><h4>⚑ 主分支保护</h4><p>组织仓库的部署主分支仅组织创建者与管理员可推送；其他成员推送自己的分支，push 时直接报错提示。</p></div>
+    <div class="card"><h4>☰ 组织与角色</h4><p>组织成员共享全部仓库；管理员 / 开发者 / 测试三角色。测试只能打开已部署的站点与 API，看不到源码与流水线。</p></div>
+    <div class="card"><h4>✎ 缺陷协作</h4><p>测试以统一 markdown 文档提交缺陷（复现步骤/预期/实际，可附截图），指派给开发；状态：待修复 → 待复测 → 已关闭。</p></div>
+    <div class="card"><h4>▤ 需求文档</h4><p>仓库级迭代需求，浏览器在线编写 markdown；只有创建者可编辑；开发提交核查、创建者验收关闭，全程留痕。</p></div>
+    <div class="card"><h4>◐ 站点与 API 托管</h4><p>前端 <code>/sites/&lt;仓库&gt;/</code>、后端 <code>/api/&lt;仓库&gt;/</code> 反代到服务端口——后端口不再逐台暴露，防火墙只开一个端口。</p></div>
+    <div class="card"><h4>↺ 部署回滚</h4><p>任务详情与最近部署列表可「回到此版本」，把任意历史提交重新构建部署，出错一键回退。</p></div>
+    <div class="card"><h4>🔔 结果通知</h4><p>配置 <code>notify_webhook</code> 后，每次部署结束（成功/失败）POST JSON 摘要到你的 IM / CI 网关。</p></div>
+    <div class="card"><h4>⚙ 零依赖运维</h4><p>数据目录 = 程序目录，全部为 YAML/JSONL 与文件，备份即拷目录；systemd 一条命令常驻，升级不中断已部署服务。</p></div>
+    <div class="card"><h4>🔒 安全基线</h4><p>PBKDF2 加盐密码、会话 Cookie（HttpOnly + SameSite）、渲染 markdown 链接消毒、缺陷截图类型白名单与访问鉴权。</p></div>
+    <div class="card"><h4>🖥 浏览器端渲染</h4><p>代码高亮与 markdown 渲染均自包含实现（无 CDN/外部资源），内网离线服务器同样完整可用。</p></div>
+  </div>
+</div></section>
+
+<footer id="site-footer"></footer>
+<script src="assets/nav.js" defer></script>
+</body>
+</html>

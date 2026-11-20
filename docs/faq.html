@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>常见问题 · Gitwo</title>
+<meta name="description" content="Gitwo 常见问题：推送认证、主分支保护、部署失败、服务启动、备份迁移等速查。">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<nav id="site-nav"></nav>
+
+<header class="hero sm"><div class="wrap">
+  <h1>常见问题</h1>
+
+</div></header>
+
+<section><div class="wrap">
+  
+  <details><summary>push 提示 Authentication failed / 403</summary><p>账户密码错误，或该用户对 private 仓库无权限（需要是归属者/组织成员/管理员）。URL 中的用户必须是平台账户，不是系统用户。</p></details>
+  <details><summary>SSH 提示 Permission denied (publickey)</summary><p>公钥未在「账户设置 → SSH 公钥」登记；或一把钥匙已绑定其他账户；测试角色没有 git 权限。用 <code>ssh -T -p 2222 git@host</code> 可验证握手。</p></details>
+  <details><summary>push 提示「主分支受保护」</summary><p>组织仓库的主分支仅组织创建者/管理员可直接推送。请推送到自己的分支（<code>git push origin HEAD:feature/xxx</code>），由管理者合并。</p></details>
+  <details><summary>流水线失败 no deploy.yaml / output not found</summary><p>仓库根目录需有 deploy.yaml；检查构建命令输出与 <code>output</code> 路径是否一致，可在流水线详情查看每步日志。</p></details>
+  <details><summary>流水线失败 run.files entry "…" not found</summary><p><code>run.files</code> 条目相对<b>仓库根（构建工作区）</b>解析，且工作区只包含已提交内容；确认文件已提交、在子目录时写全路径（如 <code>configs/config.yaml</code>），构建产物则写生成后的路径。单文件条目会同步到运行目录根（只保留文件名），要保留子目录结构请写目录条目。</p></details>
+  <details><summary>服务部署后打不开</summary><p>服务必须读取注入的 <code>$PORT</code> 监听；通过 <code>/api/&lt;仓库&gt;/</code> 代理访问即可，无需暴露 20000-23999 端口。部署详情页会自动附 app.log 尾部。</p></details>
+  <details><summary>如何备份 / 迁移？</summary><p>数据全部是文件：拷贝整个程序目录（repos/ workspaces/ apps/ data/）即可，无数据库。任务日志在 /tmp 下，丢失不影响历史摘要。</p></details>
+  <details><summary>安全提醒</summary><p>deploy.yaml 的构建/启动命令以 gitwo 运行用户身份在宿主机执行——能 push 即等同该用户级命令执行权限。请只授予可信成员写权限，不要用 root 运行。</p></details>
+</div></section>
+
+<footer id="site-footer"></footer>
+<script src="assets/nav.js" defer></script>
+</body>
+</html>

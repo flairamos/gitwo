@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>站点托管与 API 代理 · Gitwo</title>
+<meta name="description" content="前端与后端共用 9527 一个端口，服务器不必为每个后端开放防火墙端口。">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<nav id="site-nav"></nav>
+
+<header class="hero sm"><div class="wrap">
+  <h1>站点托管与 API 代理</h1>
+  <p class="lead">前端与后端共用 9527 一个端口，服务器不必为每个后端开放防火墙端口。</p>
+</div></header>
+
+<section><div class="wrap">
+  
+  
+  <table>
+    <thead><tr><th>路径</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td><code>/sites/&lt;归属_仓库名&gt;/</code></td><td>部署的静态前端直出（SPA 回退可配），private 仓库需登录</td></tr>
+      <tr><td><code>/api/&lt;归属_仓库名&gt;/…</code></td><td>反代到该仓库已部署的服务（<code>127.0.0.1:$PORT</code>），全 HTTP 方法</td></tr>
+      <tr><td><code>/git/&lt;归属&gt;/&lt;仓库&gt;.git</code></td><td>Git 智能 HTTP（clone/push，Basic 认证）</td></tr>
+      <tr><td><code>/pipelines</code> · <code>/api/status</code></td><td>流水线视图与平台状态 JSON</td></tr>
+    </tbody>
+  </table>
+<pre><code># 后端只监听 $PORT，无需对外暴露
+curl http://&lt;host&gt;:9527/api/team_shop/healthz
+# 前端访问同源 API，无跨域问题
+fetch('/api/team_shop/orders')</code></pre>
+</div></section>
+
+<footer id="site-footer"></footer>
+<script src="assets/nav.js" defer></script>
+</body>
+</html>

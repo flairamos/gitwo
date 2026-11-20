@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>协作流程：缺陷与需求 · Gitwo</title>
+<meta name="description" content="开发、测试在同一仓库空间内闭环，状态流转自动留痕。">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<nav id="site-nav"></nav>
+
+<header class="hero sm"><div class="wrap">
+  <h1>协作流程：缺陷与需求</h1>
+  <p class="lead">开发、测试在同一仓库空间内闭环，状态流转自动留痕。</p>
+</div></header>
+
+<section><div class="wrap">
+  
+  
+  <h3>缺陷生命周期</h3>
+  <div class="flow">
+    <span class="chip open">待修复</span><span class="arrow">─ 开发修复并重新部署 →</span>
+    <span class="chip fixed">待复测</span><span class="arrow">─ 测试复测通过 →</span>
+    <span class="chip closed">已关闭</span>
+  </div>
+  <p style="color:var(--muted);font-size:13.5px">
+    复测不通过可退回「待修复」；误报可由提交人直接关闭。缺陷严格隔离在所属仓库内，只能指派给对该仓库有开发权限的人（测试角色不可被指派）。</p>
+  <h3>需求生命周期</h3>
+  <div class="flow">
+    <span class="chip open">待开发</span><span class="arrow">─ 有写权限者（代码提交者）提交核查 →</span>
+    <span class="chip fixed">待核查</span><span class="arrow">─ 创建者验收通过 →</span>
+    <span class="chip closed">已关闭</span>
+  </div>
+  <p style="color:var(--muted);font-size:13.5px">
+    需求以浏览器在线 markdown 编写，<b>内容只有创建者可编辑</b>，其他人只读；核查不通过可退回待开发，需求作废可直接关闭。同组织任何角色可见。</p>
+</div></section>
+
+<footer id="site-footer"></footer>
+<script src="assets/nav.js" defer></script>
+</body>
+</html>

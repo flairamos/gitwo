@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>角色与权限 · Gitwo</title>
+<meta name="description" content="组织决定「能看到哪些仓库」，角色决定「能看到什么」。测试角色为公司 QA 设计，只接触已部署的成品。">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<nav id="site-nav"></nav>
+
+<header class="hero sm"><div class="wrap">
+  <h1>角色与权限</h1>
+  <p class="lead">组织决定「能看到哪些仓库」，角色决定「能看到什么」。测试角色为公司 QA 设计，只接触已部署的成品。</p>
+</div></header>
+
+<section><div class="wrap">
+  
+  
+  <table>
+    <thead><tr><th>能力</th><th>管理员</th><th>开发者</th><th>测试</th></tr></thead>
+    <tbody>
+      <tr><td>仓库列表 / 已部署站点</td><td>✓</td><td>✓</td><td>✓</td></tr>
+      <tr><td>测试视图（部署状态 + 站点/API 入口）</td><td>—</td><td>—</td><td>✓</td></tr>
+      <tr><td>源码浏览 / 提交历史 / Git 地址</td><td>✓</td><td>✓</td><td>✗</td></tr>
+      <tr><td>git clone / push（含组织成员）</td><td>✓</td><td>✓</td><td>✗</td></tr>
+      <tr><td>流水线 / 构建日志 / 触发部署</td><td>✓</td><td>✓</td><td>✗</td></tr>
+      <tr><td>缺陷：提交 / 复测关闭</td><td>✓</td><td>✓（被指派修复）</td><td>✓</td></tr>
+      <tr><td>需求：查看 / 创建 / 编辑</td><td>✓</td><td>✓</td><td>✓（内容仅创建者可编辑）</td></tr>
+      <tr><td>用户 / 组织管理</td><td>✓</td><td>✗</td><td>✗</td></tr>
+    </tbody>
+  </table>
+  <h3>组织协作规则</h3>
+  <ul style="color:var(--muted);font-size:13.5px;line-height:1.9">
+    <li>组织下挂用户并拥有仓库：<b>组织成员共享该组织全部仓库</b>，各自推送自己的分支；</li>
+    <li>不同组织之间代码相互隔离；可把多个组织/个人仓库并集给同一用户；</li>
+    <li><b>组织仓库主分支（部署分支，缺省 main）受保护</b>：仅组织创建者与管理员可直接推送/删除，其他成员 push 时会被明确拒绝；</li>
+    <li>删除组织前要求先清空其仓库，避免误删共享资产。</li>
+  </ul>
+</div></section>
+
+<footer id="site-footer"></footer>
+<script src="assets/nav.js" defer></script>
+</body>
+</html>

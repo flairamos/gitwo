@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Git 使用：HTTPS 与 SSH · Gitwo</title>
+<meta name="description" content="两种协议完全等价，权限规则一致，任选其一。">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<nav id="site-nav"></nav>
+
+<header class="hero sm"><div class="wrap">
+  <h1>Git 使用：HTTPS 与 SSH</h1>
+  <p class="lead">两种协议完全等价，权限规则一致，任选其一。</p>
+</div></header>
+
+<section><div class="wrap">
+  
+  
+  <div class="grid g2">
+    <div><h3 style="margin-top:0">HTTPS（账户密码）</h3>
+<pre><code># 与 GitHub/GitLab 相同：401 挑战后输入平台账户
+git clone http://&lt;host&gt;:9527/git/team/shop.git
+git remote add origin \
+  http://&lt;user&gt;:&lt;密码&gt;@&lt;host&gt;:9527/git/team/shop.git
+git push origin HEAD:feature/my-work</code></pre>
+      <p style="color:var(--muted);font-size:13px">public 仓库匿名只读；private 仓库需登录，非成员 403。</p></div>
+    <div><h3 style="margin-top:0">SSH（公钥）</h3>
+<pre><code># 账户设置 → SSH 公钥：粘贴 ~/.ssh/id_ed25519.pub
+git clone ssh://git@&lt;host&gt;:2222/team/shop.git
+ssh-keygen -t ed25519 -C "me@laptop"   # 没有钥匙先生成
+git push origin HEAD:feature/my-work</code></pre>
+      <p style="color:var(--muted);font-size:13px">统一 <code>git@</code> 身份，按公钥指纹识别用户；一把钥匙只能绑定一个账户。</p></div>
+  </div>
+  <h3>主分支保护</h3>
+  <p style="color:var(--muted);font-size:13.5px">组织仓库的主分支（部署分支）仅组织创建者与管理员可推送。普通成员推送到主分支会立即收到拒绝：</p>
+<pre><code>remote: push declined: 主分支 main 受保护 —— 仅组织创建者(admin)与管理员可直接推送；
+remote: 请推送到自己的分支：git push origin HEAD:your-branch
+ ! [remote rejected] main -&gt; main (pre-receive hook declined)</code></pre>
+</div></section>
+
+<footer id="site-footer"></footer>
+<script src="assets/nav.js" defer></script>
+</body>
+</html>

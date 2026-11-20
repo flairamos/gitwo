@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>命令行 · Gitwo</title>
+<meta name="description" content="Gitwo 命令行（serve / deploy / serve-static / version）与 data/server.yaml 可选项说明。">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<nav id="site-nav"></nav>
+
+<header class="hero sm"><div class="wrap">
+  <h1>命令行</h1>
+
+</div></header>
+
+<section><div class="wrap">
+  
+<pre><code>gitwo serve [-home &lt;dir&gt;]                 启动平台（Web + Git HTTP/SSH + 站点托管）
+gitwo deploy -repo &lt;归属/仓库&gt; [-branch …] [-sha …]
+                                          手动触发部署（可指定历史提交回滚）
+gitwo serve-static -addr :3000 -dir &lt;dir&gt; [-spa]
+                                          独立静态文件服务器（工具）
+gitwo version                             查看版本</code></pre>
+  <h3>可选配置（data/server.yaml）</h3>
+<pre><code>listen: :9527            # Web / Git / 站点 / API 端口
+ssh_listen: ":2222"      # SSH Git 服务；设为 "" 禁用
+workers: 2               # 全局并发部署数
+max_queued_per_repo: 5   # 每仓库排队上限
+verify_index: true       # 前端部署后校验 index.html
+port_min: 20000          # 自动分配端口范围
+port_max: 23999
+notify_webhook: ""       # 部署结束回调 URL（JSON）
+timeouts: {git: 5m, build: 10m, deploy: 5m, stop: 15s, start_wait: 2s, stall: 20s}</code></pre>
+  <p style="color:var(--muted);font-size:13px">未知字段会被拒绝启动（防拼写错误），修改后重启生效。</p>
+</div></section>
+
+<footer id="site-footer"></footer>
+<script src="assets/nav.js" defer></script>
+</body>
+</html>

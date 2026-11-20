@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>快速开始 · Gitwo</title>
+<meta name="description" content="只需要一台装有 Go 1.22+ 的机器（运行期只需要系统 git）。">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<nav id="site-nav"></nav>
+
+<header class="hero sm"><div class="wrap">
+  <h1>快速开始</h1>
+  <p class="lead">只需要一台装有 Go 1.22+ 的机器（运行期只需要系统 <code>git</code>）。</p>
+</div></header>
+
+<section><div class="wrap">
+  
+  
+
+  <h3>本地构建与启动</h3>
+  <div class="grid g2">
+    <div><p style="color:var(--muted);font-size:13px;margin:0 0 6px">Windows（PowerShell / cmd）</p>
+<pre><code>go build -o gitwo.exe .
+.\gitwo.exe serve
+# 数据目录 = 二进制所在目录
+.\gitwo.exe serve -home D:\gitwo-data</code></pre></div>
+    <div><p style="color:var(--muted);font-size:13px;margin:0 0 6px">Linux / macOS</p>
+<pre><code>go build -o gitwo .
+./gitwo serve
+./gitwo serve -home /tmp/dp
+nohup ./gitwo serve -home ~/dp-smoke &</code></pre></div>
+  </div>
+
+  <h3>部署到服务器（systemd）</h3>
+<pre><code>GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o gitwo-linux-amd64 .
+sudo GITWO_BIN=gitwo-linux-amd64 ./scripts/install.sh
+sudo systemctl enable --now gitwo
+# 防火墙只需放行 9527（Web/Git/站点/API）与 2222（SSH Git）</code></pre>
+
+  <h3>第一条流水线</h3>
+<pre><code># 1. Web UI 新建仓库 demo
+# 2. 克隆并放入 index.html 与 deploy.yaml（examples/demo-static 是现成例子）
+git clone http://admin:admin@服务器:9527/git/admin/demo.git &amp;&amp; cd demo
+git add -A &amp;&amp; git commit -m "first" &amp;&amp; git push origin main
+# 3. 打开 /pipelines 看实时构建；访问 /sites/admin_demo/ 查看部署结果</code></pre>
+  <p class="note">默认账户 <code>admin / admin</code>，首次登录后请立即修改密码。SSH 主机密钥首次启动自动生成于 <code>data/ssh/</code>。</p>
+</div></section>
+
+<footer id="site-footer"></footer>
+<script src="assets/nav.js" defer></script>
+</body>
+</html>
