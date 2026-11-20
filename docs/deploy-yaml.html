@@ -131,11 +131,18 @@ run:
     SIGTERM 等待（<code>timeouts.stop</code>，默认 15s）→ 超时 SIGKILL → <code>setsid nohup</code> 启动 →
     2s 存活确认（死亡自动附 <code>app.log</code> 尾部）。进程独立于 gitwo，重启平台不影响已部署服务。
   </div>
+  <div class="warn">
+    服务的工作目录就是 <code>run.workdir</code>（缺省 <code>&lt;程序目录&gt;/apps/&lt;归属_仓库&gt;/</code>），
+    <b>不会</b>从仓库工作区读取任何文件。运行期需要的配置文件/资源（如 <code>config.yaml</code>）必须用
+    <code>run.files</code> 同步到运行目录；也不要为了“就近读配置”把 <code>run.workdir</code> 指到工作区——
+    工作区每次部署都会 <code>git checkout + git clean -fdx</code>，会清掉 <code>app.pid</code> / <code>app.log</code>，
+    导致旧进程停不掉、端口冲突。
+  </div>
 </div></section>
 
 <section id="files"><div class="wrap">
   <h2><code>run.files</code>：解释型语言与配置文件</h2>
-  <p class="sub">把仓库里运行所需的文件/目录同步到服务运行目录（二进制由平台自动安装，不需要列）。</p>
+  <p class="sub">把仓库里运行所需的文件/目录同步到服务运行目录（二进制由平台自动安装，不需要列）。服务从运行目录启动、工作区只用于构建且每次部署都会刷新，所以运行时读取的文件必须在这里列出。</p>
   <table>
     <thead><tr><th>规则</th><th>说明</th></tr></thead>
     <tbody>
@@ -150,6 +157,12 @@ run:
   files: [config.yaml]          # 仓库根 config.yaml → 运行目录/config.yaml
   # files: [configs]            # 目录整体镜像 → 运行目录/configs/...
   # files: [bin/config.yaml]    # 构建产物 → 运行目录/config.yaml（单文件取文件名）</code></pre>
+  <div class="warn">
+    工作区（<code>workspaces/…</code>）与运行目录（<code>apps/…</code>）是两个不同目录：部署时二进制会被安装到运行目录，
+    服务也在运行目录启动（cwd），<b>不会</b>回工作区找文件。因此运行期要读的配置/资源必须列进 <code>run.files</code>；
+    也不要把 <code>run.workdir</code> 指到工作区，否则下次部署的 <code>git clean -fdx</code> 会清掉
+    <code>app.pid</code> / <code>app.log</code>，旧进程停不掉并造成端口冲突。
+  </div>
   <div class="note">
     报 <code>run.files entry "…" not found in repo</code>：先确认文件确实在仓库里且已提交（<code>git ls-files | grep config</code>），
     再检查是否在子目录（路径要写全）或其实是构建产物。
