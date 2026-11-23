@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>运行日志 app.log · Gitwo</title>
+<meta name="description" content="Gitwo 运行日志（app.log）：服务 stdout/stderr 的合并文件，位置在运行目录；仓库页分页查看、权限与分页机制、与任务日志的区别、程序自带日志系统的处理方式。">
+<link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<nav id="site-nav"></nav>
+
+<header class="hero sm"><div class="wrap">
+  <h1>运行日志 <code>app.log</code></h1>
+  <p class="lead">
+    Gitwo 把每个服务的标准输出与标准错误追加到运行目录的 <code>app.log</code>，
+    并在仓库页提供分页查看（按仓库鉴权、从文件尾向前翻）。
+  </p>
+</div></header>
+
+<section><div class="wrap">
+  <h2><code>app.log</code> 是什么</h2>
+  <p class="sub">服务启动命令实际是 <code>setsid nohup &lt;run.command&gt; &gt;&gt; app.log 2&gt;&amp;1 &amp;</code>，所以：</p>
+  <table>
+    <thead><tr><th>项目</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>内容</td><td>服务进程的 <b>stdout + stderr 合并</b>，没有平台加的时间戳/前缀，格式由程序决定</td></tr>
+      <tr><td>文件名</td><td>固定为 <code>app.log</code>，与 <code>build.backend.output</code> 无关（output 只决定安装后的二进制名）</td></tr>
+      <tr><td>位置</td><td>服务运行目录 <code>run.workdir</code>：缺省 <code>&lt;程序目录&gt;/apps/&lt;归属_仓库&gt;/app.log</code></td></tr>
+      <tr><td>写入方式</td><td><code>&gt;&gt;</code> 追加：每次部署/重启都往同一个文件末尾写，<b>平台不轮转、不截断</b></td></tr>
+      <tr><td>生命周期</td><td>在 <code>apps/</code> 下，跨部署、跨 Gitwo 重启都保留（工作区才是每次清空的）</td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    哪些输出会进来：Go <code>log</code>/<code>slog</code>、zap/logrus 的 console 输出、Java <code>System.out/err</code>、
+    Python <code>print</code>/<code>logging.StreamHandler</code>、任何写 fd 1/2 的内容。
+    程序自己写到文件（如 <code>logs/app.log</code>、logback FileAppender、lumberjack 轮转文件）的日志<b>不会</b>出现在这里。
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>在哪里看</h2>
+  <p class="sub">Web 界面：仓库页 →「运行日志」标签；或直接访问 <code>/repos/&lt;归属&gt;/&lt;仓库&gt;/logs</code>。</p>
+  <table>
+    <thead><tr><th>项目</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>可见范围</td><td>登录的<b>开发者/管理员</b>，且对该仓库有读权限；<b>测试角色与匿名不可见</b>（运行日志可能含路径、配置、连接串等敏感信息）</td></tr>
+      <tr><td>隔离</td><td>按仓库隔离，只显示当前仓库的 <code>app.log</code>，没有全局日志视图</td></tr>
+      <tr><td>静态站点仓库</td><td><code>type: static</code> 没有常驻服务，没有 <code>app.log</code>，页面会提示未部署服务</td></tr>
+      <tr><td>自定义 workdir</td><td>日志位置跟着 <code>run.workdir</code> 走；部署时会把 workdir 写入描述符，老部署需要重新部署一次才会被日志页识别</td></tr>
+    </tbody>
+  </table>
+
+  <h3>分页机制（加载更早）</h3>
+  <p class="sub">日志可能很大，查看器不会一次读全文件：</p>
+  <table>
+    <thead><tr><th>行为</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>从尾部开始</td><td>首次打开显示<b>最新一页</b>（默认 200 行，单页最多读 256 KiB）</td></tr>
+      <tr><td>加载更早</td><td>以本页第一行的字节偏移为游标向前再读一页，逐页追加到页面上</td></tr>
+      <tr><td>服务端成本</td><td>每次只读一页（O(页大小)），与文件总大小无关；不缓存、不常驻内存</td></tr>
+      <tr><td>浏览器成本</td><td>已加载的页会累积在页面里（点多少占多少）；「刷新最新」会丢弃已加载的更早内容、回到最新一页</td></tr>
+      <tr><td>JSON 接口</td><td><code>GET /api/repos/&lt;归属&gt;/&lt;仓库&gt;/logs?before=&amp;lines=</code>：返回 <code>lines/start/end/has_more/size</code>，可直接脚本化取日志</td></tr>
+    </tbody>
+  </table>
+</div></section>
+
+<section><div class="wrap">
+  <h2>与「任务日志」的区别</h2>
+  <table>
+    <thead><tr><th></th><th>运行日志 <code>app.log</code></th><th>任务日志（流水线日志）</th></tr></thead>
+    <tbody>
+      <tr><td>内容</td><td>服务进程运行时输出</td><td>一次部署的 git 同步 / 构建 / 安装 / 启动全过程</td></tr>
+      <tr><td>位置</td><td><code>apps/&lt;归属_仓库&gt;/app.log</code></td><td><code>/tmp/gitwo/logs/&lt;归属_仓库&gt;/&lt;task&gt;.log</code></td></tr>
+      <tr><td>查看入口</td><td>仓库页「运行日志」标签</td><td>流水线详情页（实时刷新）</td></tr>
+      <tr><td>保留策略</td><td>一直追加，平台不轮转（需自行治理）</td><td>每仓库保留最近 20 份</td></tr>
+      <tr><td>权限</td><td>开发者/管理员（仓库可读）</td><td>开发者/管理员（仓库可读），测试角色不可见</td></tr>
+    </tbody>
+  </table>
+</div></section>
+
+<section><div class="wrap">
+  <h2>程序自带日志系统怎么处理</h2>
+  <table>
+    <thead><tr><th>做法</th><th>结果</th></tr></thead>
+    <tbody>
+      <tr><td>日志写 stdout/stderr（框架默认，推荐）</td><td>全部进 <code>app.log</code>，仓库页统一查看</td></tr>
+      <tr><td>写自己的文件（<code>logs/xxx.log</code>、logback FileAppender）</td><td>业务日志在自己的文件里，<code>app.log</code> 可能只有启动日志或为空；平台不展示这些文件</td></tr>
+      <tr><td>自己轮转同名 <code>app.log</code></td><td>不推荐：程序 truncate/rename 会让 shell 重定向的 fd 指向旧 inode，输出与预期错位</td></tr>
+      <tr><td>同时写控制台和文件</td><td><code>app.log</code> 与自己的文件各一份，由程序保证一致</td></tr>
+    </tbody>
+  </table>
+  <div class="warn">
+    想让运行日志页看到全部业务日志，就把日志输出到 stdout/stderr；自定义文件日志请用独立文件名并自行轮转。
+    缓冲注意：Python 输出重定向到文件是块缓冲，建议 <code>python3 -u</code> 或 <code>PYTHONUNBUFFERED=1</code>；
+    Go <code>log</code>、Java 的 <code>println</code>、stderr 一般即时写入。
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>常见问题</h2>
+  <table>
+    <thead><tr><th>现象</th><th>原因 / 处理</th></tr></thead>
+    <tbody>
+      <tr><td>页面提示还没有 app.log</td><td>仓库不是 service/dual、尚未部署成功，或服务从未启动过（启动即失败时请看流水线详情里的 app.log 尾部）</td></tr>
+      <tr><td>app.log 是空的</td><td>程序不往 stdout/stderr 写日志（自带文件日志），或缓冲未刷新（见上）</td></tr>
+      <tr><td>找不到、但服务在跑</td><td>自定义了 <code>run.workdir</code> 且未重新部署，日志页按旧描述符找；重新部署一次即可</td></tr>
+      <tr><td>文件越来越大</td><td>平台不轮转：程序内轮转（如 lumberjack），或对 <code>apps/*/app.log</code> 配 <code>logrotate</code>（nohup 场景用 <code>copytruncate</code>，避免 rename 后输出继续写旧文件）</td></tr>
+      <tr><td>日志含敏感信息</td><td>运行日志只对开发者/管理员开放；仍建议程序侧脱敏，或用 <code>run.env</code> 注入密钥而不是打印</td></tr>
+    </tbody>
+  </table>
+</div></section>
+
+<footer id="site-footer"></footer>
+<script src="assets/nav.js" defer></script>
+</body>
+</html>

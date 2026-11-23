@@ -8,6 +8,7 @@
     ["git.html",        "Git"],
     ["workflow.html",   "协作"],
     ["deploy-yaml.html","deploy.yaml"],
+    ["app-log.html",    "运行日志"],
     ["hosting.html",    "托管"],
     ["cli.html",        "命令行"],
     ["faq.html",        "FAQ"]
