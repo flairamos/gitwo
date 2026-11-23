@@ -2,4 +2,4 @@
 // override it with -ldflags "-X gitwo/internal/version.Version=x.y.z".
 package version
 
-var Version = "1.0.3"
+var Version = "1.0.4"
