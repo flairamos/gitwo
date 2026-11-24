@@ -1353,7 +1353,7 @@ function filterRepos(q){q=q.toLowerCase();document.querySelectorAll('.repo-item'
 <div class="grid">
 <div class="card">
 <h2>基本设置</h2>
-<form method="post" action="/repos/{{.Repo.Name}}/settings">
+<form method="post" action="/repos/{{.Repo.FullName}}/settings">
 <input type="hidden" name="action" value="update">
 <label>可见性</label>
 <select name="visibility" style="width:100%">
@@ -1368,7 +1368,7 @@ function filterRepos(q){q=q.toLowerCase();document.querySelectorAll('.repo-item'
 <div class="card">
 <h2>危险操作</h2>
 <p class="muted">删除仓库会同时删除其 git 数据、构建工作区和已部署的应用，不可恢复。</p>
-<form method="post" action="/repos/{{.Repo.Name}}/settings"
+<form method="post" action="/repos/{{.Repo.FullName}}/settings"
  onsubmit="return confirm('确认删除仓库 {{.Repo.Name}}？此操作不可恢复！')">
 <input type="hidden" name="action" value="delete">
 <button class="danger">删除仓库</button>
