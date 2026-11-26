@@ -612,7 +612,29 @@ func (p *Pipeline) restartBackend(t *model.Task, w io.Writer, dc *deploycfg.Depl
 	}
 	if port > 0 {
 		if err := procmgr.CheckPort(port); err != nil {
-			return 0, fmt.Errorf("restart aborted: %w", err)
+			// 端口被占用：可能是上次手动 `nohup ./app &` 启动、没有被 app.pid
+			// 跟踪的旧实例（Stop 无从感知）。只有确认占用者运行的是本仓库安装的
+			// 二进制（或程序目录下的同名二进制）才回收，避免误杀其它服务；否则
+			// 中止并给出 pid/命令行，由用户手动处理。
+			installed := ""
+			if dc.Build.Backend != nil && dc.Build.Backend.Output != "" {
+				installed = filepath.Join(run.Workdir, filepath.Base(dc.Build.Backend.Output))
+			}
+			if installed == "" {
+				return 0, fmt.Errorf("restart aborted: %w", err)
+			}
+			root := ""
+			if p.Params.AppsRoot != "" {
+				root = filepath.Dir(p.Params.AppsRoot) // <程序目录>
+			}
+			pid, rerr := procmgr.ReclaimPort(port, installed, root, expect, w, p.Params.Timeouts.Stop)
+			if rerr != nil {
+				return 0, fmt.Errorf("restart aborted: %w; unable to reclaim port (pid %d): %v", err, pid, rerr)
+			}
+			if err2 := procmgr.CheckPort(port); err2 != nil {
+				return 0, fmt.Errorf("restart aborted: port %d still in use after reclaiming pid %d", port, pid)
+			}
+			fmt.Fprintf(w, "port %d reclaimed from stale instance pid %d; continuing\n", port, pid)
 		}
 	}
 	env := p.envFor(t, dc.Env, run.Env, map[string]string{

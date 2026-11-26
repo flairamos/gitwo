@@ -94,7 +94,7 @@ git add -A && git commit -m "first" && git push origin main
 | 构建 | 仓库根 `deploy.yaml` 声明构建命令与产物；未知字段直接报错；注入 `GITWO_REPO/BRANCH/COMMIT/TASK/PORT` 与 `TMPDIR=/tmp/gitwo/tmp/<task>`；每步超时+进程组杀灭；**停滞检测**：build 命令连续 20s 无任何输出**且整棵构建进程树几乎不消耗 CPU**（依赖下载卡死/断网；go build 等静默编译因 CPU 忙不受影响）即终止并报“停滞超过”，阈值 `timeouts.stall` 可调（0 关闭） |
 | 静态部署 | `rsync -a --delete`（rsync 缺失时自动用内置 Go 同步）；发布到 `apps/<owner>_<repo>/static`，由平台托管在 `/sites/<repo>/`（SPA 回退可配） |
 | 服务部署 | 二进制 temp+rename 原子替换（避开 text file busy）→ 读 `app.pid` → **/proc 校验 PID 归属防误杀** → SIGTERM 轮询 → 超时 SIGKILL → `nohup` 启动 → 2s 存活确认（死亡自动附 app.log 尾部）→ 端口保持稳定 |
-| 端口管理 | `run.port` 显式指定，否则自动分配（20000-23999 可配）并注入 `$PORT`；下次部署沿用上次端口（站点地址不漂移）；启动前探测端口占用 |
+| 端口管理 | `run.port` 显式指定，否则自动分配（20000-23999 可配）并注入 `$PORT`；下次部署沿用上次端口（站点地址不漂移）；启动前探测端口占用，若占用者就是本仓库安装的二进制（如上次手动 `nohup` 启动、未被 `app.pid` 跟踪的旧实例）会自动回收后继续 |
 | 站点托管 | `/sites/<repo>/`：静态目录直出或反代到服务端口；private 仓库需登录，public 匿名可访问 |
 | API 代理 | `/api/<slug>/…` 反代到该仓库已部署的后端服务（127.0.0.1:$PORT），全 HTTP 方法可用——前后端共用 9527 一个端口，后端程序无需单独暴露端口或开防火墙；权限与站点一致（private 需登录） |
 | 缺陷管理 | 仓库级缺陷单（严格隔离在所属仓库）：测试统一以 markdown 文档提交（复现步骤/预期结果/实际结果/备注，可附 ≤9 张截图），指派给指定开发人员；状态流转 **待修复 → 待复测 → 已关闭**，复测不通过退回待修复，误报可由提交人直接关闭；流转自动入档，测试/开发在缺陷页讨论（markdown）；被指派人只能是具有该仓库写权限的人员（测试角色不能被指派） |
@@ -280,6 +280,7 @@ build:
 | 服务启动后立即失败 | 详情页日志自动附 `app.log` 尾部；多为端口/配置问题 |
 | 服务地址打不开 | 确认服务读取了 `$PORT`；防火墙只需放行 9527（后端经 `/api/<slug>/` 代理访问，无需暴露 20000-23999） |
 | `pid N currently runs "xxx", refusing to kill` | app.pid 指向了别的进程（PID 复用），人工清理 |
+| 部署失败 `restart aborted: port N already in use` | 端口被占用。重启前会探测：占用者若是本仓库安装的二进制（如上次手动 `nohup ./app &` 启动、未被 app.pid 跟踪的旧实例），平台先 SIGTERM→SIGKILL 回收再继续（日志见 `port N reclaimed from stale instance pid …`）；若是其它进程则中止并给出 pid/命令行、不误杀，手动停止后重新部署（`ss -ltnp 'sport = :N'` 查 pid） |
 | git "dubious ownership" | 工作区曾被 root 触碰：`chown -R gitwo:gitwo <程序目录>` |
 | SELinux / 防火墙 | install.sh 输出末尾有对应提示命令 |
 
